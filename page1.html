@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>信号检测论 · 交互式实验室</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    background-color: #f3f4f6;
+    color: #1f2937;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  header {
+    background-color: rgb(24, 43, 73);
+    color: #ffffff;
+    text-align: left;
+    padding: 48px 48px 40px;
+  }
+
+  header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #ffffff;
+  }
+
+  header .subtitle-en {
+    margin-top: 18px;
+    font-size: 20px;
+    font-weight: 400;
+    color: #c99a4a;
+    letter-spacing: 0.5px;
+  }
+
+  header .affiliation {
+    margin-top: 18px;
+    font-size: 14px;
+    color: #ffffff;
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+
+  .login-card {
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(24, 43, 73, 0.12);
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .login-card h2 {
+    font-size: 20px;
+    color: rgb(24, 43, 73);
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .login-card .desc {
+    margin-top: 8px;
+    margin-bottom: 28px;
+    font-size: 13px;
+    color: #9ca3af;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .form-group {
+    margin-bottom: 18px;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    color: #374151;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  .form-group input {
+    width: 100%;
+    padding: 11px 14px;
+    font-size: 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .form-group input:focus {
+    border-color: rgb(24, 43, 73);
+    box-shadow: 0 0 0 3px rgba(24, 43, 73, 0.12);
+  }
+
+  .btn-primary {
+    width: 100%;
+    padding: 13px;
+    margin-top: 8px;
+    background-color: rgb(24, 43, 73);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+  }
+
+  .btn-primary:hover {
+    background-color: rgb(32, 56, 94);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+
+  .btn-secondary {
+    width: 100%;
+    padding: 13px;
+    margin-top: 12px;
+    background-color: #ffffff;
+    color: rgb(24, 43, 73);
+    border: 1.5px solid rgb(24, 43, 73);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .btn-secondary:hover {
+    background-color: #f0f2f6;
+  }
+
+  footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+    color: #9ca3af;
+    background-color: #ffffff;
+    border-top: 1px solid #e5e7eb;
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <h1>信号检测论 · 交互式实验室</h1>
+    <div class="subtitle-en">Signal Detection Theory Interactive Lab</div>
+    <div class="affiliation">北京师范大学心理学部 · 工程心理学 作业</div>
+  </header>
+
+  <main>
+    <div class="login-card">
+      <h2>同学登录</h2>
+      <p class="desc">请同学输入学号和姓名</p>
+
+      <div class="form-group">
+        <label for="studentId">学号</label>
+        <input type="text" id="studentId" placeholder="例如 202628061234">
+      </div>
+
+      <div class="form-group">
+        <label for="studentName">姓名</label>
+        <input type="text" id="studentName" placeholder="你的姓名">
+      </div>
+
+      <button class="btn-primary" onclick="handleLogin()">开始实验 →</button>
+      <button class="btn-secondary" onclick="handleGuest()">暂不登录（游客模式）</button>
+    </div>
+  </main>
+
+  <footer>
+    信号检测论交互式实验室 · 北京师范大学心理学部 · 工程心理学 · 2026
+  </footer>
+
+  <script>
+    function handleLogin() {
+      const id = document.getElementById('studentId').value.trim();
+      const name = document.getElementById('studentName').value.trim();
+
+      if (!id || !name) {
+        alert('请填写学号和姓名后再开始实验。');
+        return;
+      }
+
+      console.log("登录成功");
+      const params = new URLSearchParams({ name: name, id: id });
+      window.location.href = 'page2.html?' + params.toString();
+    }
+
+    function handleGuest() {
+      console.log("游客模式");
+      window.location.href = 'page2.html?guest=1';
+    }
+  </script>
+
+</body>
+</html>

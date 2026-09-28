@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学习与理解阶段 · 信号检测论交互式实验室</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  :root {
+    --lab-navy: rgb(24, 43, 73);
+    --lab-gold: #c99a4a;
+    --noise-blue: #3f78c5;
+    --signal-green: #4d9c5f;
+    --criterion-red: #d94a4a;
+  }
+
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    background-color: #f3f4f6;
+    color: #1f2937;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  header {
+    background-color: var(--lab-navy);
+    color: #ffffff;
+    padding: 48px 48px 40px;
+    text-align: left;
+  }
+
+  header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #ffffff;
+  }
+
+  header .subtitle-en {
+    margin-top: 18px;
+    font-size: 20px;
+    font-weight: 400;
+    color: var(--lab-gold);
+    letter-spacing: 0.5px;
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 34px 20px 46px;
+  }
+
+  .learning-layout {
+    width: 100%;
+    max-width: 1180px;
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+  }
+
+  .panel {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid #e0e4ea;
+    border-radius: 10px;
+    background-color: #ffffff;
+    box-shadow: 0 8px 22px rgba(24, 43, 73, 0.07);
+  }
+
+  .chart-panel {
+    order: 2;
+    padding: 34px 36px 28px;
+  }
+
+  .panel-title {
+    display: inline-block;
+    padding-bottom: 11px;
+    border-bottom: 2px solid var(--lab-gold);
+    color: var(--lab-navy);
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 54px;
+    margin-top: 25px;
+  }
+
+  .control-column {
+    min-width: 0;
+  }
+
+  .slider-control {
+    min-width: 0;
+  }
+
+  .slider-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 12px;
+  }
+
+  .slider-heading span {
+    color: #6b7280;
+    font-size: 14px;
+  }
+
+  .slider-heading strong {
+    color: var(--lab-gold);
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .formula-panel {
+    margin-top: 22px;
+    padding: 12px 14px;
+    border-left: 3px solid #d9dee7;
+    border-radius: 0 7px 7px 0;
+    background: #f8f9fb;
+    color: #374151;
+  }
+
+  .formula-line {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 3px;
+    line-height: 1.8;
+  }
+
+  .formula-line + .formula-line {
+    margin-top: 5px;
+  }
+
+  .formula-index {
+    color: #9ca3af;
+    font-size: 12px;
+  }
+
+  .formula-math {
+    font-family: "Times New Roman", "SimSun", serif;
+    font-size: 15px;
+    white-space: nowrap;
+  }
+
+  .formula-description {
+    color: #7b8491;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .formula-hit {
+    color: #2f8b48;
+    font-weight: 700;
+  }
+
+  .formula-false-alarm {
+    color: #b3871d;
+    font-weight: 700;
+  }
+
+  .formula-correct-rejection {
+    color: #386fa8;
+    font-weight: 700;
+  }
+
+  .formula-miss {
+    color: #b5494f;
+    font-weight: 700;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    appearance: none;
+    -webkit-appearance: none;
+    background: #dfe3e9;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    width: 21px;
+    height: 21px;
+    border: 5px solid var(--lab-navy);
+    border-radius: 50%;
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--lab-gold);
+    cursor: pointer;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 11px;
+    height: 11px;
+    border: 5px solid var(--lab-navy);
+    border-radius: 50%;
+    background: var(--lab-gold);
+    cursor: pointer;
+  }
+
+  .chart-wrap {
+    position: relative;
+    margin-top: 15px;
+  }
+
+  .chart-legend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 26px;
+    margin-bottom: 5px;
+    color: #4b5563;
+    font-size: 13px;
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .legend-dot {
+    width: 11px;
+    height: 11px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: #ffffff;
+  }
+
+  .legend-noise {
+    color: var(--noise-blue);
+  }
+
+  .legend-signal {
+    color: var(--signal-green);
+  }
+
+  .legend-false-alarm {
+    color: #d8aa32;
+  }
+
+  .legend-miss {
+    color: #d8676c;
+  }
+
+  .distribution-chart {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .axis-line {
+    stroke: #cfd5de;
+    stroke-width: 1;
+  }
+
+  .grid-line {
+    stroke: #e7eaf0;
+    stroke-width: 1;
+  }
+
+  .axis-label,
+  .tick-label {
+    fill: #7b8491;
+    font-size: 12px;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+
+  .noise-curve {
+    fill: none;
+    stroke: var(--noise-blue);
+    stroke-width: 2;
+  }
+
+  .signal-curve {
+    fill: none;
+    stroke: var(--signal-green);
+    stroke-width: 2;
+  }
+
+  .criterion-line {
+    stroke: var(--criterion-red);
+    stroke-width: 1.5;
+    stroke-dasharray: 5 4;
+    pointer-events: none;
+  }
+
+  .chart-interaction {
+    fill: transparent;
+    pointer-events: all;
+    cursor: crosshair;
+  }
+
+  .criterion-label {
+    fill: var(--criterion-red);
+    font-size: 13px;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+
+  .hover-guide {
+    opacity: 0;
+    transition: opacity 0.12s ease;
+    pointer-events: none;
+  }
+
+  .hover-guide.visible {
+    opacity: 1;
+  }
+
+  .hover-guide-line {
+    stroke: #aeb6c2;
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+  }
+
+  .hover-point {
+    fill: #ffffff;
+    stroke-width: 2;
+  }
+
+  .hover-noise-point {
+    stroke: var(--noise-blue);
+  }
+
+  .hover-signal-point {
+    stroke: var(--signal-green);
+  }
+
+  .hover-baseline-point {
+    fill: #efcb66;
+    stroke: #efcb66;
+  }
+
+  .area-label {
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    paint-order: stroke;
+    stroke: #ffffff;
+    stroke-width: 3px;
+    stroke-linejoin: round;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+
+  .area-label-hit {
+    fill: #2f8b48;
+  }
+
+  .area-label-false-alarm {
+    fill: #b3871d;
+  }
+
+  .area-label-correct-rejection {
+    fill: #386fa8;
+  }
+
+  .area-label-miss {
+    fill: #b5494f;
+  }
+
+  .chart-tooltip {
+    position: absolute;
+    z-index: 10;
+    min-width: 220px;
+    padding: 13px 15px;
+    border: 1px solid #e0e4ea;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 8px 24px rgba(24, 43, 73, 0.16);
+    font-size: 12px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.12s ease, visibility 0.12s ease;
+  }
+
+  .chart-tooltip.visible {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .hypothesis-section {
+    margin-top: 46px;
+    padding-top: 2px;
+  }
+
+  .hypothesis-title {
+    margin-top: 0;
+  }
+
+  .hypothesis-note {
+    margin-top: 18px;
+    padding: 12px 14px;
+    border-left: 3px solid #d9dee7;
+    border-radius: 0 7px 7px 0;
+    background: #f8f9fb;
+    color: #4b5563;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+
+  .hypothesis-note-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .hypothesis-note-line + .hypothesis-note-line {
+    margin-top: 5px;
+  }
+
+  .hypothesis-note-index {
+    color: #9ca3af;
+  }
+
+  .hypothesis-note-sdt {
+    color: #7c5d2b;
+    font-weight: 700;
+  }
+
+  .hypothesis-note-statistics {
+    color: #357c9f;
+    font-weight: 700;
+  }
+
+  .hypothesis-legend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    margin-top: 20px;
+    color: #4b5563;
+    font-size: 12px;
+  }
+
+  .hypothesis-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+  }
+
+  .hypothesis-line-icon {
+    width: 25px;
+    height: 0;
+    border-top: 3px solid currentColor;
+  }
+
+  .hypothesis-area-icon {
+    width: 18px;
+    height: 12px;
+    border-radius: 2px;
+    background: currentColor;
+    opacity: 0.72;
+  }
+
+  .hypothesis-critical-icon {
+    width: 24px;
+    height: 0;
+    border-top: 2px dashed currentColor;
+  }
+
+  .hypothesis-h0 {
+    color: #2f78a8;
+  }
+
+  .hypothesis-h1 {
+    color: #4d9c5f;
+  }
+
+  .hypothesis-alpha {
+    color: #d45f5f;
+  }
+
+  .hypothesis-beta {
+    color: #4b8fae;
+  }
+
+  .hypothesis-critical {
+    color: #222222;
+  }
+
+  .hypothesis-chart-wrap {
+    margin-top: 8px;
+  }
+
+  .h0-curve {
+    fill: none;
+    stroke: #2f78a8;
+    stroke-width: 2;
+  }
+
+  .h1-curve {
+    fill: none;
+    stroke: #4d9c5f;
+    stroke-width: 2;
+  }
+
+  .hypothesis-critical-line {
+    stroke: #222222;
+    stroke-width: 2;
+    stroke-dasharray: 6 5;
+  }
+
+  .hypothesis-critical-label {
+    fill: #222222;
+    font-size: 13px;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+
+  .hypothesis-alpha-label {
+    fill: #cf5353;
+    font-size: 18px;
+  }
+
+  .hypothesis-beta-label {
+    fill: #357c9f;
+    font-size: 18px;
+  }
+
+  .tooltip-title {
+    margin-bottom: 9px;
+    color: #6b7280;
+    text-align: center;
+  }
+
+  .tooltip-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-top: 6px;
+  }
+
+  .tooltip-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tooltip-row strong {
+    color: #374151;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .analysis-grid {
+    order: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 26px;
+  }
+
+  .matrix-panel,
+  .metric-panel {
+    padding: 28px 30px 30px;
+  }
+
+  .matrix-table {
+    width: 100%;
+    margin-top: 26px;
+    table-layout: fixed;
+    border-collapse: collapse;
+    border: 1px solid #111111;
+  }
+
+  .matrix-table th,
+  .matrix-table td {
+    border: 1px solid #111111;
+    padding: 17px 7px;
+    text-align: center;
+    font-size: 13px;
+  }
+
+  .matrix-table .matrix-empty {
+    background: #ffffff;
+    border: 1px solid #111111;
+  }
+
+  .matrix-table .actual-heading,
+  .matrix-table .actual-column {
+    background: var(--lab-navy);
+    color: #ffffff;
+    font-weight: 700;
+  }
+
+  .matrix-table .response-heading {
+    background: var(--lab-navy);
+    color: #ffffff;
+    font-weight: 700;
+  }
+
+  .matrix-table .response-label {
+    background: #ffffff;
+    color: var(--lab-navy);
+    font-weight: 700;
+  }
+
+  .matrix-table .hit-cell {
+    background: #b9e8ce;
+  }
+
+  .matrix-table .miss-cell {
+    background: #f4c7c8;
+  }
+
+  .matrix-table .false-alarm-cell {
+    background: #f8e8b2;
+  }
+
+  .matrix-table .correct-rejection-cell {
+    background: #d6e8fb;
+  }
+
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 26px;
+  }
+
+  .metric-card {
+    min-width: 0;
+    padding: 17px 16px 16px;
+    border-radius: 8px;
+    background: #f1f3f7;
+  }
+
+  .metric-name {
+    color: #6b7280;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .metric-number {
+    margin-top: 6px;
+    color: var(--lab-navy);
+    font-size: 28px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .metric-definition {
+    margin-top: 12px;
+    color: #4b5563;
+    font-size: 12px;
+    line-height: 1.65;
+  }
+
+  .metric-formula {
+    margin-top: 8px;
+    color: #7c5d2b;
+    font-family: "Times New Roman", "SimSun", serif;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+    color: #9ca3af;
+    background-color: #ffffff;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  @media (max-width: 780px) {
+    .analysis-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 700px) {
+    header {
+      padding: 30px 24px 26px;
+    }
+
+    header h1 {
+      font-size: 26px;
+    }
+
+    header .subtitle-en {
+      margin-top: 12px;
+      font-size: 17px;
+    }
+
+    main {
+      padding: 22px 14px 34px;
+    }
+
+    .chart-panel,
+    .matrix-panel,
+    .metric-panel {
+      padding: 22px 16px 24px;
+    }
+
+    .controls {
+      grid-template-columns: 1fr;
+      gap: 22px;
+    }
+
+    .distribution-chart {
+      min-width: 620px;
+    }
+
+    .chart-wrap,
+    .hypothesis-chart-wrap {
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 8px;
+    }
+
+    .chart-tooltip {
+      position: fixed;
+      left: 14px !important;
+      top: 92px !important;
+      width: calc(100vw - 28px);
+      min-width: 0;
+      transform: none !important;
+    }
+
+    .metric-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <h1>学习与理解阶段</h1>
+    <div class="subtitle-en">SDT和统计心理学α、β联动</div>
+  </header>
+
+  <main>
+    <div class="learning-layout">
+      <section class="panel chart-panel">
+        <h2 class="panel-title">两个分布与判定标准</h2>
+
+        <div class="controls">
+          <div class="control-column">
+            <label class="slider-control" for="dPrimeSlider">
+              <span class="slider-heading">
+                <span>敏感性 d'</span>
+                <strong id="dPrimeDisplay">1.90</strong>
+              </span>
+              <input id="dPrimeSlider" type="range" min="0.1" max="4" step="0.1" value="1.9">
+            </label>
+
+            <div class="formula-panel" aria-label="信号检测论概率恒等关系">
+              <div class="formula-line">
+                <span class="formula-index">1.</span>
+                <span class="formula-math">
+                  <span class="formula-hit">P(H)</span>
+                  +
+                  <span class="formula-miss">P(M)</span>
+                  = 1
+                </span>
+                <span class="formula-description">（信号条件下的概率之和）</span>
+              </div>
+              <div class="formula-line">
+                <span class="formula-index">2.</span>
+                <span class="formula-math">
+                  <span class="formula-false-alarm">P(FA)</span>
+                  +
+                  <span class="formula-correct-rejection">P(CR)</span>
+                  = 1
+                </span>
+                <span class="formula-description">（噪音条件下的概率之和）</span>
+              </div>
+            </div>
+          </div>
+
+          <label class="slider-control" for="criterionSlider">
+            <span class="slider-heading">
+              <span>判定标准 c</span>
+              <strong id="criterionDisplay">0.20</strong>
+            </span>
+            <input id="criterionSlider" type="range" min="-2" max="2" step="0.05" value="0.2">
+          </label>
+        </div>
+
+        <div class="chart-wrap" id="chartWrap">
+          <div class="chart-legend">
+            <span class="legend-item legend-noise">
+              <span class="legend-dot"></span>噪声 N
+            </span>
+            <span class="legend-item legend-signal">
+              <span class="legend-dot"></span>信号 SN
+            </span>
+          </div>
+
+          <svg class="distribution-chart" id="distributionChart" viewBox="0 0 1000 360" role="img" aria-label="噪音与信号的概率密度分布">
+            <line class="grid-line" x1="64" y1="20" x2="964" y2="20"></line>
+            <line class="grid-line" x1="64" y1="86" x2="964" y2="86"></line>
+            <line class="grid-line" x1="64" y1="152" x2="964" y2="152"></line>
+            <line class="grid-line" x1="64" y1="218" x2="964" y2="218"></line>
+            <line class="grid-line" x1="64" y1="284" x2="964" y2="284"></line>
+            <line class="axis-line" x1="64" y1="318" x2="964" y2="318"></line>
+            <line class="axis-line" x1="64" y1="20" x2="64" y2="318"></line>
+
+            <text class="axis-label" x="12" y="12">概率密度</text>
+            <text class="tick-label" x="42" y="24" text-anchor="end">0.5</text>
+            <text class="tick-label" x="42" y="90" text-anchor="end">0.4</text>
+            <text class="tick-label" x="42" y="156" text-anchor="end">0.3</text>
+            <text class="tick-label" x="42" y="222" text-anchor="end">0.2</text>
+            <text class="tick-label" x="42" y="288" text-anchor="end">0.1</text>
+            <text class="tick-label" x="42" y="322" text-anchor="end">0</text>
+
+            <text class="tick-label" x="64" y="343" text-anchor="middle">-4</text>
+            <text class="tick-label" x="244" y="343" text-anchor="middle">-2</text>
+            <text class="tick-label" x="424" y="343" text-anchor="middle">0</text>
+            <text class="tick-label" x="604" y="343" text-anchor="middle">2</text>
+            <text class="tick-label" x="784" y="343" text-anchor="middle">4</text>
+            <text class="tick-label" x="964" y="343" text-anchor="middle">6</text>
+            <text class="axis-label" x="978" y="322">感觉</text>
+
+            <path id="correctRejectionArea" fill="#8fb9e8" opacity="0.28"></path>
+            <path id="falseAlarmArea" fill="#efca64" opacity="0.35"></path>
+            <path id="missArea" fill="#e69398" opacity="0.34"></path>
+            <path id="hitArea" fill="#70bd87" opacity="0.27"></path>
+
+            <path class="noise-curve" id="noiseCurve"></path>
+            <path class="signal-curve" id="signalCurve"></path>
+
+            <g class="area-labels" aria-hidden="true">
+              <text class="area-label area-label-hit" id="hitAreaLabel">H</text>
+              <text class="area-label area-label-false-alarm" id="falseAlarmAreaLabel">FA</text>
+              <text class="area-label area-label-correct-rejection" id="correctRejectionAreaLabel">CR</text>
+              <text class="area-label area-label-miss" id="missAreaLabel">M</text>
+            </g>
+
+            <line class="criterion-line" id="criterionLine" x1="0" y1="20" x2="0" y2="318"></line>
+            <text class="criterion-label" id="criterionLabel" x="0" y="16" text-anchor="middle">c=0.20</text>
+            <g class="hover-guide" id="hoverGuide">
+              <line class="hover-guide-line" id="hoverGuideLine" x1="0" y1="20" x2="0" y2="318"></line>
+              <circle class="hover-point hover-noise-point" id="hoverNoisePoint" r="5"></circle>
+              <circle class="hover-point hover-signal-point" id="hoverSignalPoint" r="5"></circle>
+              <circle class="hover-point hover-baseline-point" id="hoverBaselinePoint" r="4"></circle>
+            </g>
+            <rect class="chart-interaction" id="chartInteraction" x="64" y="20" width="900" height="298"></rect>
+          </svg>
+
+          <div class="chart-tooltip" id="criterionTooltip">
+            <div class="tooltip-title"><span id="tooltipCriterion">0.20</span></div>
+            <div class="tooltip-row">
+              <span class="tooltip-name legend-noise">
+                <span class="legend-dot"></span>噪音 N
+              </span>
+              <strong id="tooltipNoiseDensity">0.0000</strong>
+            </div>
+            <div class="tooltip-row">
+              <span class="tooltip-name legend-signal">
+                <span class="legend-dot"></span>信号 SN
+              </span>
+              <strong id="tooltipSignalDensity">0.0000</strong>
+            </div>
+            <div class="tooltip-row">
+              <span class="tooltip-name legend-false-alarm">
+                <span class="legend-dot"></span>误报区 P(FA)
+              </span>
+              <strong id="tooltipFalseAlarm">0.0000</strong>
+            </div>
+            <div class="tooltip-row">
+              <span class="tooltip-name legend-miss">
+                <span class="legend-dot"></span>漏报区 P(M)
+              </span>
+              <strong id="tooltipMiss">0.0000</strong>
+            </div>
+          </div>
+        </div>
+
+        <section class="hypothesis-section">
+          <h3 class="panel-title hypothesis-title">和统计心理学α、β联动</h3>
+
+          <div class="hypothesis-note" aria-label="两种Beta指标的定义区别">
+            <div class="hypothesis-note-line">
+              <span class="hypothesis-note-index">1.</span>
+              <span>
+                <span class="hypothesis-note-sdt">SDT 里的 β：</span>
+                叫“似然比”，是描述你判断标准的。
+              </span>
+            </div>
+            <div class="hypothesis-note-line">
+              <span class="hypothesis-note-index">2.</span>
+              <span>
+                <span class="hypothesis-note-statistics">统计心理学里的 β：</span>
+                叫“第二类错误概率”（对应 SDT 里的漏报率 M）。
+              </span>
+            </div>
+          </div>
+
+          <div class="hypothesis-legend">
+            <span class="hypothesis-legend-item hypothesis-h0">
+              <span class="hypothesis-line-icon"></span>H₀分布（无效应）
+            </span>
+            <span class="hypothesis-legend-item hypothesis-alpha">
+              <span class="hypothesis-area-icon"></span>
+              α = <span id="alphaLegendValue">12.5%</span>（拒绝域）
+            </span>
+            <span class="hypothesis-legend-item hypothesis-h1">
+              <span class="hypothesis-line-icon"></span>H₁分布（有效应）
+            </span>
+            <span class="hypothesis-legend-item hypothesis-beta">
+              <span class="hypothesis-area-icon"></span>
+              β = <span id="betaLegendValue">22.7%</span>（取伪错误）
+            </span>
+            <span class="hypothesis-legend-item hypothesis-critical">
+              <span class="hypothesis-critical-icon"></span>临界值
+            </span>
+          </div>
+
+          <div class="hypothesis-chart-wrap">
+            <svg class="distribution-chart hypothesis-chart" id="hypothesisChart" viewBox="0 0 1000 380" role="img" aria-label="H0和H1分布与统计检验的alpha、beta区域">
+              <line class="grid-line" x1="64" y1="20" x2="964" y2="20"></line>
+              <line class="grid-line" x1="64" y1="86" x2="964" y2="86"></line>
+              <line class="grid-line" x1="64" y1="152" x2="964" y2="152"></line>
+              <line class="grid-line" x1="64" y1="218" x2="964" y2="218"></line>
+              <line class="grid-line" x1="64" y1="284" x2="964" y2="284"></line>
+              <line class="axis-line" x1="64" y1="318" x2="964" y2="318"></line>
+              <line class="axis-line" x1="64" y1="20" x2="64" y2="318"></line>
+
+              <text class="axis-label" x="12" y="12">概率密度</text>
+              <text class="tick-label" x="42" y="24" text-anchor="end">0.5</text>
+              <text class="tick-label" x="42" y="90" text-anchor="end">0.4</text>
+              <text class="tick-label" x="42" y="156" text-anchor="end">0.3</text>
+              <text class="tick-label" x="42" y="222" text-anchor="end">0.2</text>
+              <text class="tick-label" x="42" y="288" text-anchor="end">0.1</text>
+              <text class="tick-label" x="42" y="322" text-anchor="end">0</text>
+
+              <text class="tick-label" x="64" y="343" text-anchor="middle">-4</text>
+              <text class="tick-label" x="244" y="343" text-anchor="middle">-2</text>
+              <text class="tick-label" x="424" y="343" text-anchor="middle">0</text>
+              <text class="tick-label" x="604" y="343" text-anchor="middle">2</text>
+              <text class="tick-label" x="784" y="343" text-anchor="middle">4</text>
+              <text class="tick-label" x="964" y="343" text-anchor="middle">6</text>
+              <text class="axis-label" x="514" y="374" text-anchor="middle">检验统计量</text>
+
+              <path id="hypothesisBetaArea" fill="#9cc8dc" opacity="0.72"></path>
+              <path id="hypothesisAlphaArea" fill="#ea9c96" opacity="0.72"></path>
+
+              <path class="h0-curve" id="hypothesisH0Curve"></path>
+              <path class="h1-curve" id="hypothesisH1Curve"></path>
+
+              <line class="hypothesis-critical-line" id="hypothesisCriticalLine" x1="0" y1="20" x2="0" y2="318"></line>
+              <text class="hypothesis-critical-label" id="hypothesisCriticalLabel" x="0" y="16" text-anchor="middle">
+                临界值（SDT的c）=0.20
+              </text>
+              <text class="area-label hypothesis-alpha-label" id="hypothesisAlphaLabel">α</text>
+              <text class="area-label hypothesis-beta-label" id="hypothesisBetaLabel">β</text>
+            </svg>
+          </div>
+        </section>
+      </section>
+
+      <div class="analysis-grid">
+        <section class="panel matrix-panel">
+          <h2 class="panel-title">混淆矩阵</h2>
+
+          <table class="matrix-table">
+            <colgroup>
+              <col style="width: 24%">
+              <col style="width: 24%">
+              <col style="width: 26%">
+              <col style="width: 26%">
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="matrix-empty" colspan="2" rowspan="2"></th>
+                <th class="actual-heading" colspan="2">实际状态</th>
+              </tr>
+              <tr>
+                <th class="actual-column">有信号</th>
+                <th class="actual-column">无信号</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th class="response-heading" rowspan="2">反应</th>
+                <th class="response-label">说“有”</th>
+                <td class="hit-cell">H=<span id="matrixHit">0.77</span></td>
+                <td class="false-alarm-cell">FA=<span id="matrixFalseAlarm">0.13</span></td>
+              </tr>
+              <tr>
+                <th class="response-label">说“无”</th>
+                <td class="miss-cell">M=<span id="matrixMiss">0.23</span></td>
+                <td class="correct-rejection-cell">CR=<span id="matrixCorrectRejection">0.87</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="panel metric-panel">
+          <h2 class="panel-title">SDT 指标</h2>
+
+          <div class="metric-grid">
+            <article class="metric-card">
+              <div class="metric-name">d'</div>
+              <div class="metric-number" id="metricDPrime">1.90</div>
+              <p class="metric-definition">
+                辨别力指标，表示信号分布与噪音分布之间的距离。d'越大，两者越容易区分。
+              </p>
+              <div class="metric-formula">d' = z(H) - z(FA)</div>
+            </article>
+
+            <article class="metric-card">
+              <div class="metric-name">β</div>
+              <div class="metric-number" id="metricBeta">1.46</div>
+              <p class="metric-definition">
+                反应偏向的似然比指标。β=1 表示标准中性，β&gt;1 表示偏严格，β&lt;1 表示偏宽松。
+              </p>
+              <div class="metric-formula">β = f<sub>SN</sub>(x<sub>c</sub>) / f<sub>N</sub>(x<sub>c</sub>) = e<sup>d'c</sup></div>
+            </article>
+
+            <article class="metric-card">
+              <div class="metric-name">c</div>
+              <div class="metric-number" id="metricCriterion">0.20</div>
+              <p class="metric-definition">
+                判定标准相对两分布中点的位置。c&gt;0 表示偏严格，c&lt;0 表示偏宽松。
+              </p>
+              <div class="metric-formula">c = -0.5 × [z(H) + z(FA)]</div>
+            </article>
+
+            <article class="metric-card">
+              <div class="metric-name">A'</div>
+              <div class="metric-number" id="metricAPrime">0.895</div>
+              <p class="metric-definition">
+                非参数辨别力指标，可理解为 ROC 曲线下面积。0.5 接近随机，1 表示完全辨别。
+              </p>
+              <div class="metric-formula">A' = 0.5 + [(H-FA)(1+H-FA)] / [4H(1-FA)]</div>
+            </article>
+          </div>
+
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    信号检测论交互式实验室 · 北京师范大学心理学部 · 工程心理学 · 2026
+  </footer>
+
+  <script>
+    const X_MIN = -4;
+    const X_MAX = 6;
+    const Y_MAX = 0.5;
+    const SVG_WIDTH = 1000;
+    const SVG_HEIGHT = 360;
+    const PLOT_LEFT = 64;
+    const PLOT_RIGHT = 964;
+    const PLOT_TOP = 20;
+    const PLOT_BOTTOM = 318;
+    const PLOT_WIDTH = PLOT_RIGHT - PLOT_LEFT;
+    const PLOT_HEIGHT = PLOT_BOTTOM - PLOT_TOP;
+    const SQRT_TWO_PI = Math.sqrt(2 * Math.PI);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const requestedDPrime = Number.parseFloat(urlParams.get('dPrime'));
+    const initialDPrime = Number.isFinite(requestedDPrime)
+      ? Math.min(4, Math.max(0.1, requestedDPrime))
+      : 1.9;
+
+    const dPrimeSlider = document.getElementById('dPrimeSlider');
+    const criterionSlider = document.getElementById('criterionSlider');
+    const dPrimeDisplay = document.getElementById('dPrimeDisplay');
+    const criterionDisplay = document.getElementById('criterionDisplay');
+    const chartWrap = document.getElementById('chartWrap');
+    const criterionTooltip = document.getElementById('criterionTooltip');
+    const distributionChart = document.getElementById('distributionChart');
+    const chartInteraction = document.getElementById('chartInteraction');
+    const hoverGuide = document.getElementById('hoverGuide');
+
+    dPrimeSlider.value = initialDPrime.toFixed(1);
+
+    let tooltipVisible = false;
+    let hoveredX = initialDPrime / 2;
+    let hoveredY = 120;
+
+    function normalPdf(value) {
+      return Math.exp(-0.5 * value * value) / SQRT_TWO_PI;
+    }
+
+    function errorFunction(value) {
+      const sign = value < 0 ? -1 : 1;
+      const x = Math.abs(value);
+      const a1 = 0.254829592;
+      const a2 = -0.284496736;
+      const a3 = 1.421413741;
+      const a4 = -1.453152027;
+      const a5 = 1.061405429;
+      const p = 0.3275911;
+      const t = 1 / (1 + p * x);
+      const polynomial =
+        (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t;
+      return sign * (1 - polynomial * Math.exp(-x * x));
+    }
+
+    function normalCdf(value) {
+      return 0.5 * (1 + errorFunction(value / Math.sqrt(2)));
+    }
+
+    function calculateAPrime(hitRate, falseAlarmRate) {
+      const h = Math.min(0.999, Math.max(0.001, hitRate));
+      const f = Math.min(0.999, Math.max(0.001, falseAlarmRate));
+
+      if (h >= f) {
+        return 0.5 + ((h - f) * (1 + h - f)) / (4 * h * (1 - f));
+      }
+
+      return 0.5 - ((f - h) * (1 + f - h)) / (4 * f * (1 - h));
+    }
+
+    function svgX(value) {
+      return PLOT_LEFT + ((value - X_MIN) / (X_MAX - X_MIN)) * PLOT_WIDTH;
+    }
+
+    function svgY(value) {
+      return PLOT_BOTTOM - (value / Y_MAX) * PLOT_HEIGHT;
+    }
+
+    function pointerToDataX(clientX) {
+      const rect = distributionChart.getBoundingClientRect();
+      const svgCoordinate = ((clientX - rect.left) / rect.width) * SVG_WIDTH;
+      const value =
+        X_MIN + ((svgCoordinate - PLOT_LEFT) / PLOT_WIDTH) * (X_MAX - X_MIN);
+      return Math.min(X_MAX, Math.max(X_MIN, value));
+    }
+
+    function pointerToWrapY(clientY) {
+      const rect = chartWrap.getBoundingClientRect();
+      return Math.min(
+        rect.height - 80,
+        Math.max(52, clientY - rect.top)
+      );
+    }
+
+    function truncatedMean(z, side) {
+      const probability = normalCdf(z);
+      const density = normalPdf(z);
+
+      if (side === 'left') {
+        return probability < 0.0001 ? z - 1 : -density / probability;
+      }
+
+      return 1 - probability < 0.0001 ? z + 1 : density / (1 - probability);
+    }
+
+    function setAreaLabel(elementId, mean, x, verticalScale, minimumY, maximumY) {
+      const clippedX = Math.min(X_MAX - 0.25, Math.max(X_MIN + 0.25, x));
+      const density = normalPdf(clippedX - mean);
+      const y = Math.max(
+        minimumY,
+        Math.min(maximumY, density * verticalScale)
+      );
+      const label = document.getElementById(elementId);
+
+      label.setAttribute('x', svgX(clippedX));
+      label.setAttribute('y', svgY(y));
+    }
+
+    function buildCurvePath(mean) {
+      const points = [];
+      const steps = 240;
+
+      for (let index = 0; index <= steps; index += 1) {
+        const x = X_MIN + ((X_MAX - X_MIN) * index) / steps;
+        const density = normalPdf(x - mean);
+        points.push((index === 0 ? 'M' : 'L') + svgX(x).toFixed(2) + ',' + svgY(density).toFixed(2));
+      }
+
+      return points.join(' ');
+    }
+
+    function buildAreaPath(mean, startValue, endValue) {
+      const start = Math.min(endValue, Math.max(X_MIN, startValue));
+      const end = Math.max(start, Math.min(X_MAX, endValue));
+      const steps = 120;
+      const points = [
+        'M' + svgX(start).toFixed(2) + ',' + svgY(0).toFixed(2)
+      ];
+
+      for (let index = 0; index <= steps; index += 1) {
+        const x = start + ((end - start) * index) / steps;
+        const density = normalPdf(x - mean);
+        points.push('L' + svgX(x).toFixed(2) + ',' + svgY(density).toFixed(2));
+      }
+
+      points.push('L' + svgX(end).toFixed(2) + ',' + svgY(0).toFixed(2) + ' Z');
+      return points.join(' ');
+    }
+
+    function formatRate(value) {
+      return value.toFixed(2);
+    }
+
+    function formatMetric(value, digits) {
+      if (Math.abs(value) >= 1000) {
+        return value.toExponential(2);
+      }
+
+      return value.toFixed(digits);
+    }
+
+    function computeModel() {
+      const dPrime = Number.parseFloat(dPrimeSlider.value);
+      const criterion = Number.parseFloat(criterionSlider.value);
+      const decisionThreshold = criterion + dPrime / 2;
+      const hit = 1 - normalCdf(decisionThreshold - dPrime);
+      const falseAlarm = 1 - normalCdf(decisionThreshold);
+      const miss = 1 - hit;
+      const correctRejection = 1 - falseAlarm;
+      const beta =
+        normalPdf(decisionThreshold - dPrime) / normalPdf(decisionThreshold);
+      const aPrime = calculateAPrime(hit, falseAlarm);
+
+      return {
+        dPrime,
+        criterion,
+        decisionThreshold,
+        hit,
+        falseAlarm,
+        miss,
+        correctRejection,
+        beta,
+        aPrime
+      };
+    }
+
+    function updateTooltipPosition() {
+      const chartWidth = chartWrap.clientWidth;
+      const ratio = svgX(hoveredX) / SVG_WIDTH;
+      const left = ratio * chartWidth;
+      const placeRight = ratio < 0.68;
+
+      criterionTooltip.style.left = left + 'px';
+      criterionTooltip.style.top = hoveredY + 'px';
+      criterionTooltip.style.transform = placeRight
+        ? 'translate(14px, -50%)'
+        : 'translate(calc(-100% - 14px), -50%)';
+    }
+
+    function updateTooltipContent(model) {
+      document.getElementById('tooltipCriterion').textContent =
+        hoveredX.toFixed(2);
+      document.getElementById('tooltipNoiseDensity').textContent =
+        normalPdf(hoveredX).toFixed(4);
+      document.getElementById('tooltipSignalDensity').textContent =
+        normalPdf(hoveredX - model.dPrime).toFixed(4);
+      document.getElementById('tooltipFalseAlarm').textContent =
+        model.falseAlarm.toFixed(4);
+      document.getElementById('tooltipMiss').textContent =
+        model.miss.toFixed(4);
+    }
+
+    function updateHoverGuide(model) {
+      const guideX = svgX(hoveredX);
+      const noiseY = svgY(normalPdf(hoveredX));
+      const signalY = svgY(normalPdf(hoveredX - model.dPrime));
+
+      document.getElementById('hoverGuideLine').setAttribute('x1', guideX);
+      document.getElementById('hoverGuideLine').setAttribute('x2', guideX);
+      document.getElementById('hoverGuideLine').setAttribute('y1', PLOT_TOP);
+      document.getElementById('hoverGuideLine').setAttribute('y2', PLOT_BOTTOM);
+      document.getElementById('hoverNoisePoint').setAttribute('cx', guideX);
+      document.getElementById('hoverNoisePoint').setAttribute('cy', noiseY);
+      document.getElementById('hoverSignalPoint').setAttribute('cx', guideX);
+      document.getElementById('hoverSignalPoint').setAttribute('cy', signalY);
+      document.getElementById('hoverBaselinePoint').setAttribute('cx', guideX);
+      document.getElementById('hoverBaselinePoint').setAttribute('cy', PLOT_BOTTOM);
+    }
+
+    function render() {
+      const model = computeModel();
+      const criterionX = svgX(model.decisionThreshold);
+
+      document.getElementById('noiseCurve').setAttribute('d', buildCurvePath(0));
+      document.getElementById('signalCurve').setAttribute('d', buildCurvePath(model.dPrime));
+
+      document.getElementById('correctRejectionArea').setAttribute(
+        'd',
+        buildAreaPath(0, X_MIN, model.decisionThreshold)
+      );
+      document.getElementById('falseAlarmArea').setAttribute(
+        'd',
+        buildAreaPath(0, model.decisionThreshold, X_MAX)
+      );
+      document.getElementById('missArea').setAttribute(
+        'd',
+        buildAreaPath(model.dPrime, X_MIN, model.decisionThreshold)
+      );
+      document.getElementById('hitArea').setAttribute(
+        'd',
+        buildAreaPath(model.dPrime, model.decisionThreshold, X_MAX)
+      );
+
+      const noiseLeftMean = truncatedMean(model.decisionThreshold, 'left');
+      const noiseRightMean = truncatedMean(model.decisionThreshold, 'right');
+      const signalLeftMean =
+        model.dPrime + truncatedMean(model.decisionThreshold - model.dPrime, 'left');
+      const signalRightMean =
+        model.dPrime + truncatedMean(model.decisionThreshold - model.dPrime, 'right');
+
+      setAreaLabel('correctRejectionAreaLabel', 0, noiseLeftMean, 0.3, 0.11, 0.16);
+      setAreaLabel('falseAlarmAreaLabel', 0, noiseRightMean, 0.22, 0.015, 0.045);
+      setAreaLabel('missAreaLabel', model.dPrime, signalLeftMean, 0.3, 0.02, 0.055);
+      setAreaLabel('hitAreaLabel', model.dPrime, signalRightMean, 0.3, 0.08, 0.16);
+
+      document.getElementById('hypothesisH0Curve').setAttribute('d', buildCurvePath(0));
+      document.getElementById('hypothesisH1Curve').setAttribute(
+        'd',
+        buildCurvePath(model.dPrime)
+      );
+      document.getElementById('hypothesisBetaArea').setAttribute(
+        'd',
+        buildAreaPath(model.dPrime, X_MIN, model.decisionThreshold)
+      );
+      document.getElementById('hypothesisAlphaArea').setAttribute(
+        'd',
+        buildAreaPath(0, model.decisionThreshold, X_MAX)
+      );
+
+      document.getElementById('hypothesisCriticalLine').setAttribute('x1', criterionX);
+      document.getElementById('hypothesisCriticalLine').setAttribute('x2', criterionX);
+      document.getElementById('hypothesisCriticalLabel').setAttribute('x', criterionX);
+      document.getElementById('hypothesisCriticalLabel').textContent =
+        '临界值（SDT的c）=' + model.criterion.toFixed(2);
+
+      setAreaLabel('hypothesisAlphaLabel', 0, noiseRightMean, 0.3, 0.1, 0.16);
+      setAreaLabel(
+        'hypothesisBetaLabel',
+        model.dPrime,
+        signalLeftMean,
+        0.3,
+        0.025,
+        0.07
+      );
+
+      document.getElementById('alphaLegendValue').textContent =
+        (model.falseAlarm * 100).toFixed(1) + '%';
+      document.getElementById('betaLegendValue').textContent =
+        (model.miss * 100).toFixed(1) + '%';
+
+      document.getElementById('criterionLine').setAttribute('x1', criterionX);
+      document.getElementById('criterionLine').setAttribute('x2', criterionX);
+      document.getElementById('criterionLabel').setAttribute('x', criterionX);
+      document.getElementById('criterionLabel').textContent =
+        'c=' + model.criterion.toFixed(2);
+
+      dPrimeDisplay.textContent = model.dPrime.toFixed(2);
+      criterionDisplay.textContent = model.criterion.toFixed(2);
+
+      document.getElementById('matrixHit').textContent = formatRate(model.hit);
+      document.getElementById('matrixFalseAlarm').textContent =
+        formatRate(model.falseAlarm);
+      document.getElementById('matrixMiss').textContent = formatRate(model.miss);
+      document.getElementById('matrixCorrectRejection').textContent =
+        formatRate(model.correctRejection);
+
+      document.getElementById('metricDPrime').textContent =
+        model.dPrime.toFixed(2);
+      document.getElementById('metricBeta').textContent =
+        formatMetric(model.beta, 2);
+      document.getElementById('metricCriterion').textContent =
+        model.criterion.toFixed(2);
+      document.getElementById('metricAPrime').textContent =
+        model.aPrime.toFixed(3);
+
+      updateTooltipContent(model);
+      updateHoverGuide(model);
+
+      if (tooltipVisible) {
+        updateTooltipPosition();
+      }
+    }
+
+    dPrimeSlider.addEventListener('input', render);
+    criterionSlider.addEventListener('input', render);
+
+    chartInteraction.addEventListener('pointerenter', (event) => {
+      tooltipVisible = true;
+      hoverGuide.classList.add('visible');
+      criterionTooltip.classList.add('visible');
+      hoveredX = pointerToDataX(event.clientX);
+      hoveredY = pointerToWrapY(event.clientY);
+      render();
+    });
+
+    chartInteraction.addEventListener('pointermove', (event) => {
+      hoveredX = pointerToDataX(event.clientX);
+      hoveredY = pointerToWrapY(event.clientY);
+      updateTooltipContent(computeModel());
+      updateHoverGuide(computeModel());
+      updateTooltipPosition();
+    });
+
+    chartInteraction.addEventListener('pointerleave', () => {
+      tooltipVisible = false;
+      hoverGuide.classList.remove('visible');
+      criterionTooltip.classList.remove('visible');
+    });
+
+    window.addEventListener('resize', () => {
+      if (tooltipVisible) {
+        updateTooltipPosition();
+      }
+    });
+
+    render();
+  </script>
+
+</body>
+</html>

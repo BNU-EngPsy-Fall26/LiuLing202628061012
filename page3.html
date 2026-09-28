@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大雾天行驶 · 信号检测论交互式实验室</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  :root {
+    --lab-navy: rgb(24, 43, 73);
+    --lab-gold: #c99a4a;
+    --light-blur: 9px;
+    --light-saturation: 0.41;
+    --light-brightness: 0.54;
+    --light-opacity: 0.43;
+    --noise-opacity: 0.63;
+    --fog-opacity: 0.47;
+    --chroma-veil: 0.67;
+  }
+
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    background-color: #f3f4f6;
+    color: #1f2937;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  header {
+    background-color: var(--lab-navy);
+    color: #ffffff;
+    padding: 48px 48px 40px;
+    text-align: left;
+  }
+
+  header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #ffffff;
+  }
+
+  header .subtitle-en {
+    margin-top: 18px;
+    font-size: 20px;
+    font-weight: 400;
+    color: var(--lab-gold);
+    letter-spacing: 0.5px;
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 38px 20px 32px;
+  }
+
+  .game-shell {
+    width: 100%;
+    max-width: 840px;
+    min-width: 0;
+  }
+
+  .game-panel {
+    position: relative;
+    width: 100%;
+    min-height: 580px;
+    overflow: hidden;
+    border-radius: 12px;
+    background-color: #090b0f;
+    box-shadow: 0 14px 34px rgba(24, 43, 73, 0.18);
+  }
+
+  .game-meta {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 16px 22px;
+    font-size: 14px;
+    color: #9ca3af;
+    pointer-events: none;
+    min-width: 0;
+  }
+
+  .trial-progress {
+    white-space: nowrap;
+  }
+
+  .trial-progress .current-trial,
+  .record-line strong {
+    color: var(--lab-gold);
+    font-weight: 700;
+  }
+
+  .trial-progress .trial-separator {
+    margin: 0 3px;
+    color: #6b7280;
+  }
+
+  .record-line {
+    text-align: right;
+    white-space: nowrap;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .stimulus-stage {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    isolation: isolate;
+    background:
+      radial-gradient(circle at 50% 46%, rgba(255, 255, 255, 0.035), transparent 36%),
+      #090b0f;
+  }
+
+  .stimulus-stage::before {
+    content: "";
+    position: absolute;
+    width: 410px;
+    height: 410px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(218, 224, 232, 0.26), rgba(218, 224, 232, 0) 70%);
+    filter: blur(24px);
+    opacity: var(--fog-opacity);
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+  }
+
+  .signal-light {
+    position: relative;
+    width: 210px;
+    height: 210px;
+    border-radius: 50%;
+    opacity: 0;
+    transform: scale(0.92);
+    filter:
+      blur(var(--light-blur))
+      saturate(var(--light-saturation))
+      brightness(var(--light-brightness));
+    transition:
+      opacity 0.18s ease,
+      transform 0.18s ease,
+      background-color 0.12s ease,
+      box-shadow 0.12s ease;
+  }
+
+  .signal-light.red {
+    --signal-color: #d34a4c;
+    --signal-shadow: rgba(211, 74, 76, 0.62);
+  }
+
+  .signal-light.green {
+    --signal-color: #4ea464;
+    --signal-shadow: rgba(78, 164, 100, 0.58);
+  }
+
+  .signal-light::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background:
+      radial-gradient(circle at 36% 30%, rgba(255, 255, 255, 0.64), transparent 38%),
+      linear-gradient(
+        rgba(184, 190, 201, var(--chroma-veil)),
+        rgba(184, 190, 201, var(--chroma-veil))
+      ),
+      var(--signal-color);
+    box-shadow:
+      0 0 30px var(--signal-shadow),
+      0 0 80px var(--signal-shadow);
+    opacity: var(--light-opacity);
+  }
+
+  .signal-light::after {
+    content: "";
+    position: absolute;
+    inset: -14%;
+    z-index: 2;
+    border-radius: 50%;
+    background-image:
+      radial-gradient(circle at 18% 24%, rgba(255, 255, 255, 0.48) 0 1px, transparent 1.6px),
+      radial-gradient(circle at 72% 61%, rgba(0, 0, 0, 0.58) 0 1px, transparent 1.8px),
+      radial-gradient(circle at 52% 84%, rgba(255, 255, 255, 0.3) 0 1px, transparent 1.5px),
+      repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 5px);
+    background-size: 8px 8px, 11px 11px, 7px 7px, 9px 9px;
+    opacity: var(--noise-opacity);
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
+
+  .stimulus-stage.presenting .signal-light {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .stimulus-stage.judging .signal-light,
+  .stimulus-stage.recorded .signal-light {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+
+  .judgment-mask {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.18s ease, visibility 0.18s ease;
+    pointer-events: none;
+  }
+
+  .stimulus-stage.judging .judgment-mask,
+  .stimulus-stage.recorded .judgment-mask {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .judgment-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 15px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    font-size: 25px;
+    font-weight: 500;
+  }
+
+  .judgment-title {
+    font-size: 31px;
+    font-weight: 700;
+  }
+
+  .judgment-subtitle {
+    margin-top: 13px;
+    font-size: 15px;
+    color: #8f96a3;
+  }
+
+  .stimulus-stage.recorded .judgment-icon,
+  .stimulus-stage.recorded .judgment-subtitle {
+    display: none;
+  }
+
+  .stimulus-stage.recorded .judgment-title {
+    font-size: 21px;
+    color: var(--lab-gold);
+  }
+
+  .response-row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 28px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .response-btn {
+    flex: 1 1 0;
+    min-width: 230px;
+    max-width: 320px;
+    padding: 15px 28px;
+    border: none;
+    border-radius: 8px;
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.1s ease, filter 0.15s ease, opacity 0.15s ease;
+  }
+
+  .response-btn:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+
+  .response-btn:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .response-btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+  }
+
+  .response-signal {
+    background-color: #d93030;
+  }
+
+  .response-noise {
+    background-color: #2e9d4a;
+  }
+
+  .end-screen {
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 14px 34px rgba(24, 43, 73, 0.14);
+    padding: 50px 36px;
+    text-align: center;
+  }
+
+  .end-label {
+    color: var(--lab-gold);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .end-screen h2 {
+    margin-top: 12px;
+    color: var(--lab-navy);
+    font-size: 34px;
+  }
+
+  .result-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    max-width: 620px;
+    margin: 32px auto 0;
+  }
+
+  .result-item {
+    padding: 18px 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+  }
+
+  .result-item span {
+    display: block;
+    color: #9ca3af;
+    font-size: 12px;
+  }
+
+  .result-item strong {
+    display: block;
+    margin-top: 7px;
+    color: var(--lab-navy);
+    font-size: 25px;
+  }
+
+  .restart-btn {
+    padding: 13px 30px;
+    border: 1.5px solid var(--lab-navy);
+    border-radius: 8px;
+    background-color: #ffffff;
+    color: var(--lab-navy);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .restart-btn:hover {
+    background-color: #f0f2f6;
+  }
+
+  .end-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 32px;
+  }
+
+  .view-results-btn {
+    padding: 13px 30px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--lab-navy);
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .view-results-btn:hover {
+    background-color: rgb(32, 56, 94);
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+    color: #9ca3af;
+    background-color: #ffffff;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  @media (max-width: 700px) {
+    html,
+    body {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    header {
+      padding: 30px 24px 26px;
+    }
+
+    header h1 {
+      font-size: 26px;
+    }
+
+    header .subtitle-en {
+      margin-top: 12px;
+      font-size: 17px;
+    }
+
+    main {
+      width: 100%;
+      padding: 22px 14px 26px;
+    }
+
+    .game-shell {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+
+    .game-panel {
+      min-height: 460px;
+    }
+
+    .game-meta {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px;
+      padding: 13px 14px;
+      font-size: 12px;
+    }
+
+    .record-line {
+      max-width: none;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .signal-light {
+      width: 165px;
+      height: 165px;
+    }
+
+    .response-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .response-btn {
+      width: 100%;
+      min-width: 0;
+      max-width: none;
+      padding: 14px 10px;
+      font-size: 14px;
+      white-space: normal;
+    }
+
+    .result-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <h1>大雾天行驶</h1>
+    <div class="subtitle-en">判断红绿灯</div>
+  </header>
+
+  <main>
+    <div class="game-shell">
+      <section class="game-panel" id="gamePanel" aria-label="信号判断游戏区">
+        <div class="game-meta">
+          <div class="trial-progress">
+            <span class="current-trial" id="currentTrial">第 0 次</span>
+            <span class="trial-separator">/</span>
+            <span id="totalTrials">20 次</span>
+          </div>
+          <div class="record-line">
+            已记录：击中 <strong id="hitCount">0</strong> 次 · 误报 <strong id="falseAlarmCount">0</strong> 次
+          </div>
+        </div>
+
+        <div class="stimulus-stage" id="stimulusStage">
+          <div class="signal-light red" id="signalLight"></div>
+          <div class="judgment-mask" id="judgmentMask" aria-live="polite">
+            <div class="judgment-icon">!</div>
+            <div class="judgment-title" id="judgmentTitle">现在请判断</div>
+            <div class="judgment-subtitle" id="judgmentSubtitle">刚才看到的是红灯吗？</div>
+          </div>
+        </div>
+      </section>
+
+      <div class="response-row" id="responseRow">
+        <button class="response-btn response-signal" id="signalButton" type="button" disabled>
+          有信号 / 有问题
+        </button>
+        <button class="response-btn response-noise" id="noiseButton" type="button" disabled>
+          无信号 / 正常
+        </button>
+      </div>
+
+      <section class="end-screen hidden" id="endScreen">
+        <div class="end-label">实验完成</div>
+        <h2>游戏结束</h2>
+        <div class="result-grid">
+          <div class="result-item"><span>击中 H</span><strong id="finalHit">0</strong></div>
+          <div class="result-item"><span>漏报 M</span><strong id="finalMiss">0</strong></div>
+          <div class="result-item"><span>误报 FA</span><strong id="finalFalseAlarm">0</strong></div>
+          <div class="result-item"><span>正确拒绝 CR</span><strong id="finalCorrectRejection">0</strong></div>
+        </div>
+        <div class="end-actions">
+          <button class="view-results-btn" id="viewResultsButton" type="button">查看检测成绩</button>
+          <button class="restart-btn" id="restartButton" type="button">再玩一次</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    信号检测论交互式实验室 · 北京师范大学心理学部 · 工程心理学 · 2026
+  </footer>
+
+  <script>
+    const STIMULUS_DURATION_MS = 1200;
+    const RECORD_DURATION_MS = 420;
+    const ALLOWED_TRIAL_COUNTS = [20, 50, 100];
+    const SESSION_STORAGE_KEY = 'sdtLastSession';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const parsedDPrime = Number.parseFloat(urlParams.get('dPrime'));
+    const parsedTrials = Number.parseInt(urlParams.get('trials'), 10);
+    const studentName = urlParams.get('name') || '';
+    const studentId = urlParams.get('id') || '';
+    const isGuest = urlParams.get('guest') === '1';
+    const dPrime = Number.isFinite(parsedDPrime)
+      ? Math.min(3.5, Math.max(0.5, parsedDPrime))
+      : 1.5;
+    const totalTrials = ALLOWED_TRIAL_COUNTS.includes(parsedTrials) ? parsedTrials : 20;
+
+    const gamePanel = document.getElementById('gamePanel');
+    const responseRow = document.getElementById('responseRow');
+    const endScreen = document.getElementById('endScreen');
+    const stimulusStage = document.getElementById('stimulusStage');
+    const signalLight = document.getElementById('signalLight');
+    const currentTrialEl = document.getElementById('currentTrial');
+    const totalTrialsEl = document.getElementById('totalTrials');
+    const hitCountEl = document.getElementById('hitCount');
+    const falseAlarmCountEl = document.getElementById('falseAlarmCount');
+    const judgmentTitle = document.getElementById('judgmentTitle');
+    const judgmentSubtitle = document.getElementById('judgmentSubtitle');
+    const signalButton = document.getElementById('signalButton');
+    const noiseButton = document.getElementById('noiseButton');
+    const restartButton = document.getElementById('restartButton');
+    const viewResultsButton = document.getElementById('viewResultsButton');
+
+    let currentTrial = 0;
+    let sequence = [];
+    let phase = 'idle';
+    let trialTimer = null;
+    let counts = createEmptyCounts();
+
+    function createEmptyCounts() {
+      return { H: 0, M: 0, FA: 0, CR: 0 };
+    }
+
+    function buildSequence(count) {
+      const signalCount = count / 2;
+      const values = Array.from({ length: count }, (_, index) => index < signalCount);
+
+      for (let i = values.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [values[i], values[j]] = [values[j], values[i]];
+      }
+
+      return values;
+    }
+
+    function applyDifficulty() {
+      const normalized = (dPrime - 0.5) / 3;
+      const blur = 10.5 - normalized * 4.5;
+      const saturation = 0.35 + normalized * 0.17;
+      const brightness = 0.47 + normalized * 0.21;
+      const lightOpacity = 0.36 + normalized * 0.22;
+      const noiseOpacity = 0.72 - normalized * 0.26;
+      const fogOpacity = 0.54 - normalized * 0.2;
+      const chromaVeil = 0.74 - normalized * 0.22;
+
+      document.documentElement.style.setProperty('--light-blur', blur.toFixed(2) + 'px');
+      document.documentElement.style.setProperty('--light-saturation', saturation.toFixed(2));
+      document.documentElement.style.setProperty('--light-brightness', brightness.toFixed(2));
+      document.documentElement.style.setProperty('--light-opacity', lightOpacity.toFixed(2));
+      document.documentElement.style.setProperty('--noise-opacity', noiseOpacity.toFixed(2));
+      document.documentElement.style.setProperty('--fog-opacity', fogOpacity.toFixed(2));
+      document.documentElement.style.setProperty('--chroma-veil', chromaVeil.toFixed(2));
+    }
+
+    function persistSession(completed) {
+      const sessionData = {
+        studentName,
+        studentId,
+        guest: isGuest,
+        dPrime,
+        totalTrials,
+        completedTrials: currentTrial,
+        completed,
+        counts: { ...counts },
+        updatedAt: new Date().toISOString()
+      };
+
+      try {
+        window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionData));
+      } catch (error) {
+        console.warn('无法写入本次实验记录。', error);
+      }
+    }
+
+    function updateProgress() {
+      currentTrialEl.textContent = '第 ' + currentTrial + ' 次';
+      totalTrialsEl.textContent = totalTrials + ' 次';
+    }
+
+    function updateVisibleRecord() {
+      hitCountEl.textContent = counts.H;
+      falseAlarmCountEl.textContent = counts.FA;
+    }
+
+    function setButtonsEnabled(enabled) {
+      signalButton.disabled = !enabled;
+      noiseButton.disabled = !enabled;
+    }
+
+    function startTrial() {
+      window.clearTimeout(trialTimer);
+
+      if (currentTrial >= totalTrials) {
+        finishGame();
+        return;
+      }
+
+      const isSignal = sequence[currentTrial];
+      currentTrial += 1;
+      phase = 'presenting';
+      updateProgress();
+      setButtonsEnabled(false);
+
+      stimulusStage.classList.remove('judging', 'recorded');
+      stimulusStage.classList.add('presenting');
+      signalLight.classList.toggle('red', isSignal);
+      signalLight.classList.toggle('green', !isSignal);
+      judgmentTitle.textContent = '现在请判断';
+      judgmentSubtitle.textContent = '刚才看到的是红灯吗？';
+
+      trialTimer = window.setTimeout(() => {
+        stimulusStage.classList.remove('presenting');
+        stimulusStage.classList.add('judging');
+        phase = 'responding';
+        setButtonsEnabled(true);
+      }, STIMULUS_DURATION_MS);
+    }
+
+    function recordResponse(saysSignal) {
+      if (phase !== 'responding') {
+        return;
+      }
+
+      phase = 'recorded';
+      setButtonsEnabled(false);
+
+      const wasSignal = sequence[currentTrial - 1];
+
+      if (wasSignal && saysSignal) {
+        counts.H += 1;
+      } else if (wasSignal && !saysSignal) {
+        counts.M += 1;
+      } else if (!wasSignal && saysSignal) {
+        counts.FA += 1;
+      } else {
+        counts.CR += 1;
+      }
+
+      updateVisibleRecord();
+      persistSession(false);
+      stimulusStage.classList.remove('judging');
+      stimulusStage.classList.add('recorded');
+      judgmentTitle.textContent = '已记录';
+      judgmentSubtitle.textContent = '';
+
+      trialTimer = window.setTimeout(startTrial, RECORD_DURATION_MS);
+    }
+
+    function finishGame() {
+      phase = 'finished';
+      gamePanel.classList.add('hidden');
+      responseRow.classList.add('hidden');
+      document.getElementById('finalHit').textContent = counts.H;
+      document.getElementById('finalMiss').textContent = counts.M;
+      document.getElementById('finalFalseAlarm').textContent = counts.FA;
+      document.getElementById('finalCorrectRejection').textContent = counts.CR;
+      persistSession(true);
+      endScreen.classList.remove('hidden');
+    }
+
+    function resetGame() {
+      window.clearTimeout(trialTimer);
+      currentTrial = 0;
+      sequence = buildSequence(totalTrials);
+      phase = 'idle';
+      counts = createEmptyCounts();
+      updateProgress();
+      updateVisibleRecord();
+      endScreen.classList.add('hidden');
+      gamePanel.classList.remove('hidden');
+      responseRow.classList.remove('hidden');
+      stimulusStage.className = 'stimulus-stage';
+      signalLight.className = 'signal-light red';
+      setButtonsEnabled(false);
+      persistSession(false);
+      trialTimer = window.setTimeout(startTrial, 350);
+    }
+
+    signalButton.addEventListener('click', () => recordResponse(true));
+    noiseButton.addEventListener('click', () => recordResponse(false));
+    restartButton.addEventListener('click', resetGame);
+    viewResultsButton.addEventListener('click', () => {
+      window.location.href = 'page4.html?' + urlParams.toString();
+    });
+
+    applyDifficulty();
+    resetGame();
+  </script>
+
+</body>
+</html>

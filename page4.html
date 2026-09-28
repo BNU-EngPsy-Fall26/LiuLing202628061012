@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>你的监测成绩 · 信号检测论交互式实验室</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  :root {
+    --lab-navy: rgb(24, 43, 73);
+    --lab-gold: #c99a4a;
+  }
+
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    background-color: #f3f4f6;
+    color: #1f2937;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  header {
+    background-color: var(--lab-navy);
+    color: #ffffff;
+    padding: 48px 48px 40px;
+    text-align: left;
+  }
+
+  header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #ffffff;
+  }
+
+  header .subtitle-en {
+    margin-top: 18px;
+    font-size: 20px;
+    font-weight: 400;
+    color: var(--lab-gold);
+    letter-spacing: 0.5px;
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 58px 20px 48px;
+  }
+
+  .results-content {
+    width: 100%;
+    max-width: 780px;
+  }
+
+  .section-title {
+    color: var(--lab-navy);
+    font-size: 21px;
+    font-weight: 700;
+  }
+
+  .description {
+    margin-top: 10px;
+    color: #9ca3af;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .matrix-wrap {
+    width: 100%;
+    margin-top: 24px;
+  }
+
+  .confusion-matrix {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    border: 1.5px solid var(--lab-navy);
+    background: #ffffff;
+  }
+
+  .confusion-matrix th,
+  .confusion-matrix td {
+    border: 1px solid #cbd3df;
+    padding: 18px 8px;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 14px;
+  }
+
+  .confusion-matrix .matrix-empty {
+    background: #ffffff;
+    border: none;
+  }
+
+  .confusion-matrix .actual-heading,
+  .confusion-matrix .actual-column {
+    background-color: var(--lab-navy);
+    color: #ffffff;
+    font-weight: 700;
+  }
+
+  .confusion-matrix .actual-heading {
+    font-size: 15px;
+  }
+
+  .confusion-matrix .judgment-heading,
+  .confusion-matrix .response-label {
+    background-color: #f8fafc;
+    color: var(--lab-navy);
+    font-weight: 700;
+  }
+
+  .confusion-matrix .hit-cell {
+    background-color: #b9e8ce;
+  }
+
+  .confusion-matrix .miss-cell {
+    background-color: #f4c7c8;
+  }
+
+  .confusion-matrix .false-alarm-cell {
+    background-color: #f8e8b2;
+  }
+
+  .confusion-matrix .correct-rejection-cell {
+    background-color: #d6e8fb;
+  }
+
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 42px;
+  }
+
+  .metric {
+    text-align: center;
+  }
+
+  .metric-label {
+    color: #6b7280;
+    font-size: 13px;
+  }
+
+  .metric-value {
+    margin-top: 8px;
+    color: var(--lab-navy);
+    font-size: 25px;
+    font-weight: 700;
+  }
+
+  .learning-button {
+    display: block;
+    width: 270px;
+    max-width: 100%;
+    margin: 52px auto 0;
+    padding: 14px 20px;
+    border-radius: 8px;
+    background-color: var(--lab-navy);
+    color: #ffffff;
+    text-align: center;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 700;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+  }
+
+  .learning-button:hover {
+    background-color: rgb(32, 56, 94);
+  }
+
+  .learning-button:active {
+    transform: scale(0.98);
+  }
+
+  footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+    color: #9ca3af;
+    background-color: #ffffff;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  @media (max-width: 700px) {
+    header {
+      padding: 30px 24px 26px;
+    }
+
+    header h1 {
+      font-size: 26px;
+    }
+
+    header .subtitle-en {
+      margin-top: 12px;
+      font-size: 17px;
+    }
+
+    main {
+      padding: 34px 14px 38px;
+    }
+
+    .section-title {
+      font-size: 19px;
+    }
+
+    .confusion-matrix th,
+    .confusion-matrix td {
+      padding: 12px 4px;
+      font-size: 11px;
+    }
+
+    .confusion-matrix .actual-heading {
+      font-size: 12px;
+    }
+
+    .metrics {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 24px 12px;
+      margin-top: 34px;
+    }
+
+    .metric-value {
+      font-size: 22px;
+    }
+
+    .learning-button {
+      width: 100%;
+      margin-top: 42px;
+    }
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <h1>你的监测成绩</h1>
+    <div class="subtitle-en">
+      大雾天行驶 · <span id="headerTrialCount">20</span>次判断
+    </div>
+  </header>
+
+  <main>
+    <div class="results-content">
+      <h2 class="section-title">你的混淆矩阵</h2>
+      <p class="description">
+        这就是你刚才<span id="descriptionTrialCount">20</span>次判断的结果统计。
+      </p>
+
+      <div class="matrix-wrap">
+        <table class="confusion-matrix">
+          <colgroup>
+            <col style="width: 38%">
+            <col style="width: 15%">
+            <col style="width: 23.5%">
+            <col style="width: 23.5%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="matrix-empty" colspan="2" rowspan="2"></th>
+              <th class="actual-heading" colspan="2">实际情况</th>
+            </tr>
+            <tr>
+              <th class="actual-column">有信号</th>
+              <th class="actual-column">无信号</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th class="judgment-heading" rowspan="2">你的判断</th>
+              <th class="response-label">说“有”</th>
+              <td class="hit-cell">击中 H=<span id="hitValue">0</span></td>
+              <td class="false-alarm-cell">误报 FA=<span id="falseAlarmValue">0</span></td>
+            </tr>
+            <tr>
+              <th class="response-label">说“无”</th>
+              <td class="miss-cell">漏报 M=<span id="missValue">0</span></td>
+              <td class="correct-rejection-cell">正确拒绝 CR=<span id="correctRejectionValue">0</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">击中率 P(H)</div>
+          <div class="metric-value" id="hitRate">0.00</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">误报率 P(FA)</div>
+          <div class="metric-value" id="falseAlarmRate">0.00</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">d'（敏感性）</div>
+          <div class="metric-value" id="dPrimeValue">0.00</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">c（标准）</div>
+          <div class="metric-value" id="criterionValue">0.00</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">准确率</div>
+          <div class="metric-value" id="accuracyValue">0%</div>
+        </div>
+      </div>
+
+      <a class="learning-button" id="learningButton" href="page5.html">进入学习理解阶段</a>
+    </div>
+  </main>
+
+  <footer>
+    信号检测论交互式实验室 · 北京师范大学心理学部 · 工程心理学 · 2026
+  </footer>
+
+  <script>
+    const ALLOWED_TRIAL_COUNTS = [20, 50, 100];
+    const SESSION_STORAGE_KEY = 'sdtLastSession';
+    const urlParams = new URLSearchParams(window.location.search);
+
+    function readSavedSession() {
+      try {
+        const rawData = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+        return rawData ? JSON.parse(rawData) : null;
+      } catch (error) {
+        console.warn('无法读取本次实验记录。', error);
+        return null;
+      }
+    }
+
+    function normalizeCount(value) {
+      const number = Number.parseInt(value, 10);
+      return Number.isFinite(number) && number >= 0 ? number : 0;
+    }
+
+    function inverseNormal(probability) {
+      const p = Math.min(0.9999, Math.max(0.0001, probability));
+      const lowerTail = p < 0.5 ? p : 1 - p;
+      const t = Math.sqrt(-2 * Math.log(lowerTail));
+      const numerator =
+        2.515517 +
+        0.802853 * t +
+        0.010328 * t * t;
+      const denominator =
+        1 +
+        1.432788 * t +
+        0.189269 * t * t +
+        0.001308 * t * t * t;
+      const z = t - numerator / denominator;
+      return p < 0.5 ? -z : z;
+    }
+
+    const savedSession = readSavedSession();
+    const queryTrials = Number.parseInt(urlParams.get('trials'), 10);
+    const savedTrials = Number.parseInt(savedSession?.totalTrials, 10);
+    const totalTrials = ALLOWED_TRIAL_COUNTS.includes(queryTrials)
+      ? queryTrials
+      : (ALLOWED_TRIAL_COUNTS.includes(savedTrials) ? savedTrials : 20);
+
+    const savedCounts = savedSession?.counts || {};
+    const counts = {
+      H: normalizeCount(savedCounts.H),
+      M: normalizeCount(savedCounts.M),
+      FA: normalizeCount(savedCounts.FA),
+      CR: normalizeCount(savedCounts.CR)
+    };
+
+    const signalTotal = counts.H + counts.M;
+    const noiseTotal = counts.FA + counts.CR;
+    const observedTotal = signalTotal + noiseTotal;
+    const hitRate = signalTotal > 0 ? counts.H / signalTotal : 0;
+    const falseAlarmRate = noiseTotal > 0 ? counts.FA / noiseTotal : 0;
+    const adjustedHitRate = (counts.H + 0.5) / (signalTotal + 1);
+    const adjustedFalseAlarmRate = (counts.FA + 0.5) / (noiseTotal + 1);
+    const sensitivity =
+      inverseNormal(adjustedHitRate) - inverseNormal(adjustedFalseAlarmRate);
+    const criterion =
+      -0.5 * (inverseNormal(adjustedHitRate) + inverseNormal(adjustedFalseAlarmRate));
+    const accuracy = observedTotal > 0
+      ? Math.round(((counts.H + counts.CR) / observedTotal) * 100)
+      : 0;
+
+    document.getElementById('headerTrialCount').textContent = totalTrials;
+    document.getElementById('descriptionTrialCount').textContent = totalTrials;
+    document.getElementById('hitValue').textContent = counts.H;
+    document.getElementById('missValue').textContent = counts.M;
+    document.getElementById('falseAlarmValue').textContent = counts.FA;
+    document.getElementById('correctRejectionValue').textContent = counts.CR;
+    document.getElementById('hitRate').textContent = hitRate.toFixed(2);
+    document.getElementById('falseAlarmRate').textContent = falseAlarmRate.toFixed(2);
+    document.getElementById('dPrimeValue').textContent = sensitivity.toFixed(2);
+    document.getElementById('criterionValue').textContent = criterion.toFixed(2);
+    document.getElementById('accuracyValue').textContent = accuracy + '%';
+
+    const learningParams = new URLSearchParams(window.location.search);
+    learningParams.set('trials', String(totalTrials));
+    if (Number.isFinite(Number.parseFloat(savedSession?.dPrime))) {
+      learningParams.set('dPrime', String(savedSession.dPrime));
+    }
+    document.getElementById('learningButton').href =
+      'page5.html?' + learningParams.toString();
+  </script>
+
+</body>
+</html>

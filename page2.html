@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>难度设置 · 信号检测论交互式实验室</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    background-color: #ffffff;
+    color: #1f2937;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  header {
+    background-color: rgb(24, 43, 73);
+    color: #ffffff;
+    padding: 48px 48px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #ffffff;
+  }
+
+  header .subtitle-en {
+    margin-top: 18px;
+    font-size: 20px;
+    font-weight: 400;
+    color: #c99a4a;
+    letter-spacing: 0.5px;
+  }
+
+  header .affiliation {
+    margin-top: 18px;
+    font-size: 14px;
+    color: #ffffff;
+  }
+
+  .header-right {
+    font-size: 14px;
+    color: #ffffff;
+    white-space: nowrap;
+    margin-top: 4px;
+  }
+
+  .header-right .logout-link {
+    color: #c99a4a;
+    text-decoration: underline;
+    cursor: pointer;
+    margin-left: 4px;
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 48px 20px;
+  }
+
+  .content {
+    width: 100%;
+    max-width: 860px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    min-height: 560px;
+  }
+
+  .section-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: rgb(24, 43, 73);
+    margin-bottom: 24px;
+  }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .slider-label-side {
+    font-size: 13px;
+    color: #9ca3af;
+    white-space: nowrap;
+  }
+
+  .slider-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: #c99a4a;
+    min-width: 32px;
+    text-align: right;
+  }
+
+  input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, #c99a4a, #e5c98a);
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background-color: #c99a4a;
+    border: 2.5px solid rgb(24, 43, 73);
+    cursor: pointer;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background-color: #c99a4a;
+    border: 2.5px solid rgb(24, 43, 73);
+    cursor: pointer;
+  }
+
+  .description {
+    font-size: 13px;
+    color: #9ca3af;
+    line-height: 1.7;
+  }
+
+  .scenario-text {
+    font-size: 20px;
+    color: rgb(24, 43, 73);
+    line-height: 1.8;
+  }
+
+  .scenario-text .bold-label {
+    font-weight: 700;
+  }
+
+  .trial-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+
+  .trial-label {
+    font-size: 20px;
+    font-weight: 700;
+    color: rgb(24, 43, 73);
+  }
+
+  .trial-options {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .trial-options label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: #6b7280;
+    cursor: pointer;
+  }
+
+  .trial-options input[type="radio"] {
+    accent-color: rgb(24, 43, 73);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+
+  .trial-note {
+    font-size: 13px;
+    color: #9ca3af;
+  }
+
+  .action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .btn-primary {
+    padding: 13px 32px;
+    background-color: rgb(24, 43, 73);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+  }
+
+  .btn-primary:hover {
+    background-color: rgb(32, 56, 94);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+
+  .btn-secondary {
+    padding: 13px 32px;
+    background-color: #ffffff;
+    color: rgb(24, 43, 73);
+    border: 1.5px solid rgb(24, 43, 73);
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .btn-secondary:hover {
+    background-color: #f0f2f6;
+  }
+
+  footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+    color: #9ca3af;
+    background-color: #ffffff;
+    border-top: 1px solid #e5e7eb;
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <h1>信号检测论 · 交互式实验室</h1>
+      <div class="subtitle-en">Signal Detection Theory Interactive Lab</div>
+      <div class="affiliation">北京师范大学心理学部 · 工程心理学 作业</div>
+    </div>
+    <div class="header-right">
+      <span id="userInfo"></span>
+      <a class="logout-link" href="index.html">退出</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="content">
+      <div class="group-difficulty">
+        <div class="section-title">难度调节（信号强度 d'）</div>
+
+        <div class="slider-row">
+          <span class="slider-label-side">困难(d'=0.5)</span>
+          <input type="range" id="dPrimeSlider" min="0.5" max="3.5" step="0.1" value="1.5">
+          <span class="slider-label-side">简单(d'=3.5)</span>
+          <span class="slider-value" id="dPrimeValue">1.5</span>
+        </div>
+
+        <p class="description">d'越小，信号和噪音越重叠，越难判断——试试不同难度，体会"能力"和"标准"的区别。</p>
+      </div>
+
+      <p class="scenario-text"><span class="bold-label">游戏场景设定：</span>"大雾天驾驶"。玩家坐在驾驶位，前方有一个红绿灯。玩家需要判断是红灯（信号，需刹车）还是绿灯（噪音，可行驶）。</p>
+
+      <div class="trial-row">
+        <span class="trial-label">游戏次数</span>
+        <div class="trial-options">
+          <label><input type="radio" name="trials" value="20" checked> 20次</label>
+          <label><input type="radio" name="trials" value="50"> 50次</label>
+          <label><input type="radio" name="trials" value="100"> 100次</label>
+        </div>
+        <span class="trial-note">（次数越多，d'估计更稳定）</span>
+      </div>
+
+      <div class="action-row">
+        <button class="btn-primary" onclick="handleStart()">开始游戏</button>
+        <button class="btn-secondary" onclick="handleSkip()">已玩过，直接看结果</button>
+        <button class="btn-secondary" onclick="handleDirectLearning()">直接进入理解学习阶段</button>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    信号检测论交互式实验室 · 北京师范大学心理学部 · 工程心理学 · 2026
+  </footer>
+
+  <script>
+    // 解析首页传入的登录信息
+    const urlParams = new URLSearchParams(window.location.search);
+    const userInfoEl = document.getElementById('userInfo');
+
+    if (urlParams.get('guest') === '1') {
+      userInfoEl.textContent = '（游客模式）';
+    } else {
+      const name = urlParams.get('name') || '';
+      const id = urlParams.get('id') || '';
+      userInfoEl.textContent = '（' + name + ' ' + id + '）';
+    }
+
+    // 滑块数值实时显示
+    const slider = document.getElementById('dPrimeSlider');
+    const valueDisplay = document.getElementById('dPrimeValue');
+    slider.addEventListener('input', () => {
+      valueDisplay.textContent = parseFloat(slider.value).toFixed(1);
+    });
+
+    function getSelectedTrials() {
+      return document.querySelector('input[name="trials"]:checked').value;
+    }
+
+    function buildForwardUrl(pageName) {
+      const params = new URLSearchParams(window.location.search);
+      params.set('dPrime', slider.value);
+      params.set('trials', getSelectedTrials());
+      return pageName + '?' + params.toString();
+    }
+
+    function handleStart() {
+      window.location.href = buildForwardUrl('page3.html');
+    }
+
+    function handleSkip() {
+      window.location.href = buildForwardUrl('page4.html');
+    }
+
+    function handleDirectLearning() {
+      window.location.href = buildForwardUrl('page5.html');
+    }
+  </script>
+
+</body>
+</html>
