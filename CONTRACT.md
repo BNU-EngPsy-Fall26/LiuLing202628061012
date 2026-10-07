@@ -410,7 +410,7 @@ accuracy = (counts.H + counts.CR) / totalTrials;
 | 编号 | 模块 | 交付物 | 依赖 | 可并行 |
 |---|---|---|---|---|
 | M0 | 契约 | `CONTRACT.md` | — | 已完成 |
-| M1 | 配置 + 工具栏 + 设计系统 + 骨架 | `js/config.js` `js/utils.js` `styles/tokens.css` `index.html` | M0 | 否，先做 |
+| M1 | 配置 + 设计系统 + 骨架 | `js/config.js` `js/utils.js`<br>`styles/tokens.css` `styles/main.css` `index.html` | M0 | 否，先做 |
 | M2 | 登录与会话 | `js/auth.js` | M1 | ✅ |
 | M3 | 实验说明屏（含试次模式选择） | `js/brief.js` | M1 | ✅ |
 | M4 | **患者数据生成** | `js/patient.js` 的 `generate()`<br>素材：`js/patient-data.js` | M1 | ✅ |
