@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>急诊分诊台 · 信号检测论交互式实验室</title>
+
+<!-- 样式：先令牌，再布局 -->
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+
+<!-- ==========================================================================
+     全局页头
+     ========================================================================== -->
+<header class="app-header">
+  <h1><span class="brand-dot"></span>急诊分诊台</h1>
+  <p class="subtitle">信号检测论交互式实验室 · 三轮同样的患者，三种不同的代价</p>
+</header>
+
+<!-- ==========================================================================
+     开发导航条 —— 骨架阶段的临时工具，验收完成后可删
+     当前所在的屏会高亮（由 showScreen 同步）
+     ========================================================================== -->
+<nav class="dev-nav">
+  <span class="dev-nav-label">开发导航</span>
+  <button data-screen="login"   onclick="showScreen('login')">1 登录</button>
+  <button data-screen="brief"   onclick="showScreen('brief')">2 说明</button>
+  <button data-screen="game"    onclick="showScreen('game')">3 游戏</button>
+  <button data-screen="round"   onclick="showScreen('round')">4 轮次</button>
+  <button data-screen="results" onclick="showScreen('results')">5 结果</button>
+  <button data-screen="lab"     onclick="showScreen('lab')">6 实验室</button>
+  <button data-screen="admin"   onclick="showScreen('admin')">7 后台</button>
+</nav>
+
+<main>
+
+  <!-- ========================================================================
+       1. 登录
+       ======================================================================== -->
+  <div class="screen active" id="screen-login">
+    <h2>登录</h2>
+    <p class="placeholder">这一屏最终会有：学号 + 姓名输入框，以及一个游客模式入口。</p>
+    <div class="card">
+      <div class="card-head">占位 · 尚未实装</div>
+      <button class="btn btn-primary" onclick="showScreen('brief')">进入实验说明 →</button>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       2. 实验说明
+       ======================================================================== -->
+  <div class="screen" id="screen-brief">
+    <h2>实验说明</h2>
+    <p class="placeholder">这一屏最终会有：三轮结构说明、试次模式二选一（标准 30 / 快速 16）、知情同意。</p>
+    <div class="card">
+      <div class="card-head">占位 · 尚未实装</div>
+      <button class="btn btn-primary" onclick="enterRound(1)">开始第一轮 →</button>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       3. 游戏
+       ======================================================================== -->
+  <div class="screen" id="screen-game">
+    <h2 id="gameTitle">第 1 轮 · 常规值班</h2>
+    <p class="placeholder">这一屏最终会有：患者卡片（主诉 + 生命体征）、「立即紧急处理 / 可以等待」两个按钮、判断后的即时反馈。</p>
+    <div class="card">
+      <div class="card-head">占位 · 尚未实装</div>
+      <div class="btn-row">
+        <button class="btn btn-danger" onclick="finishRound()">立即紧急处理</button>
+        <button class="btn btn-ghost" onclick="finishRound()">可以等待</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       4. 轮次过渡
+       ======================================================================== -->
+  <div class="screen" id="screen-round">
+    <h2 id="roundTitle">轮次过渡</h2>
+    <p class="placeholder">这一屏最终会有：情境变化提示（急诊爆满 / 复盘漏诊），带玩家真实数据。</p>
+    <div class="card">
+      <div class="card-head">占位 · 尚未实装</div>
+      <pre id="roundIntro" class="round-intro"></pre>
+      <button class="btn btn-primary" onclick="nextRound()">进入下一轮 →</button>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       5. 结果
+       ======================================================================== -->
+  <div class="screen" id="screen-results">
+    <h2>结果</h2>
+    <p class="placeholder">这一屏最终会有：三轮对比表（P(H) / P(FA) / d′ / c / 准确率）、混淆矩阵、SDT 指标解读。</p>
+    <div class="card">
+      <div class="card-head">占位 · 尚未实装</div>
+      <table class="cm-table">
+        <caption>混淆矩阵（示例格式）</caption>
+        <thead>
+          <tr><th>第一轮</th><th>击中 H</th><th>漏报 M</th><th>误报 FA</th><th>正确拒斥 CR</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>计数</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+        </tbody>
+      </table>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="showScreen('lab')">打开概念实验室 →</button>
+        <button class="btn btn-ghost" onclick="demoRound = 1; showScreen('login')">重新开始 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       6. 概念实验室
+       ======================================================================== -->
+  <div class="screen" id="screen-lab">
+    <h2>概念实验室</h2>
+    <p class="placeholder">这一屏最终会有 4 个面板：两个分布、ROC 曲线、代价与最优判据、警觉衰退模拟。</p>
+    <div class="card">
+      <div class="card-head">占位 · 尚未实装</div>
+      <button class="btn btn-primary" onclick="showScreen('admin')">进入教师后台 →</button>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       7. 教师后台
+       ======================================================================== -->
+  <div class="screen" id="screen-admin">
+    <h2>教师后台</h2>
+    <p class="placeholder">这一屏最终会有：全班成绩汇总、按试次模式分组的统计图。</p>
+    <div class="card">
+      <div class="card-head">占位 · 尚未实装</div>
+      <button class="btn btn-ghost" onclick="showScreen('login')">回到登录 →</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- 配置与工具：先 config 后 utils -->
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+
+<script>
+/* ============================================================================
+ * 屏幕切换
+ *
+ * 参数用短名（'login'），函数内部拼成 'screen-login'。
+ * 切换方式：给目标屏加 .active，其余屏由 CSS 自动隐藏（见 main.css）。
+ * ==========================================================================*/
+
+function showScreen(id) {
+  var screens = document.querySelectorAll('.screen');
+
+  for (var i = 0; i < screens.length; i++) {
+    screens[i].classList.remove('active');
+  }
+
+  var target = document.getElementById('screen-' + id);
+  if (!target) {
+    console.warn('没有这个屏幕：screen-' + id);
+  } else {
+    target.classList.add('active');
+  }
+
+  // 同步开发导航条的高亮
+  var navBtns = document.querySelectorAll('.dev-nav button');
+  for (var j = 0; j < navBtns.length; j++) {
+    if (navBtns[j].getAttribute('data-screen') === id) {
+      navBtns[j].classList.add('active');
+    } else {
+      navBtns[j].classList.remove('active');
+    }
+  }
+
+  window.scrollTo(0, 0);
+}
+
+/* ============================================================================
+ * ★★★ 以下是骨架用的假流程，只为演示"三轮"的形状 ★★★
+ *   真正的轮次状态机由 M6（js/engine.js）实现，届时整段删除。
+ * ==========================================================================*/
+
+var demoRound = 1;
+
+// 进入第 n 轮
+function enterRound(n) {
+  demoRound = n;
+  document.getElementById('gameTitle').textContent =
+    '第 ' + n + ' 轮 · ' + ROUNDS[n - 1].name;
+  showScreen('game');
+}
+
+// 本轮结束：还有下一轮就去过渡屏，第 3 轮结束直接进结果页
+function finishRound() {
+  if (demoRound >= 3) { showScreen('results'); return; }
+  var next = demoRound + 1;
+  document.getElementById('roundTitle').textContent =
+    '第 ' + demoRound + ' 轮结束 → 进入第 ' + next + ' 轮';
+  // {round2M} 和 {n} 占位符骨架阶段原样显示，替换是 M7 的活
+  document.getElementById('roundIntro').textContent = ROUNDS[next - 1].intro;
+  showScreen('round');
+}
+
+function nextRound() { enterRound(demoRound + 1); }
+
+// 页面加载：先填好第 1 轮的标题，再退回登录屏（骨架仍从登录开始）
+enterRound(1);
+showScreen('login');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,87 @@
+/* ============================================================================
+ * styles/tokens.css —— 设计令牌（颜色 + 字体 + reset）
+ *
+ * 【规矩】色值只在这里定义一次，其它 CSS 一律用 var(--xxx) 引用。
+ *   想换配色？改这一个文件就够了。
+ * ==========================================================================*/
+
+:root{
+  /* —— 背景层次 —— */
+  --c-bg:        #0B1118;  /* 最底层，近乎黑 */
+  --c-surface:   #131D27;  /* 卡片 */
+  --c-surface-2: #1B2733;  /* 卡片内嵌 / 悬停态 */
+
+  /* —— 品牌色 —— */
+  --c-primary:   #22B8CF;  /* 医疗青 · 主色按钮、链接、选中态 */
+  --c-accent:    #2ED3A6;  /* 监护仪绿 · 强调、成功、正常体征 */
+
+  /* —— 语义色（生命体征分档用）—— */
+  --c-normal:    #2ED3A6;  /* 正常 */
+  --c-watch:     #F5A524;  /* 需观察（黄） */
+  --c-danger:    #FF4D4F;  /* 危急（红） */
+
+  /* —— 文本 —— */
+  --c-text:      #E6EDF3;  /* 正文 */
+  --c-text-dim:  #8A9AAB;  /* 次要文字 */
+  --c-border:    #24313F;  /* 边框 */
+
+  /* —— 尺寸 —— */
+  --radius:      14px;
+  --radius-sm:   8px;
+}
+
+/* ----------------------------------------------------------------------------
+ * 字体（不引外部 CDN，只用系统字体栈）
+ *   中文标题 / 正文 → --font-sans
+ *   数字、生命体征、公式、d′/c → --font-mono（必须等宽，否则数字会左右跳）
+ * -------------------------------------------------------------------------- */
+
+:root{
+  --font-sans: 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+/* ----------------------------------------------------------------------------
+ * 基础 reset
+ * -------------------------------------------------------------------------- */
+
+*{
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html{
+  font-size: 16px;
+}
+
+body{
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4{
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+ul, ol{
+  list-style: none;
+}
+
+a{
+  color: var(--c-primary);
+  text-decoration: none;
+}
+
+/* 数字类一律走等宽字体 */
+.num,
+.mono,
+.metrics td,
+.cm-table td{
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
