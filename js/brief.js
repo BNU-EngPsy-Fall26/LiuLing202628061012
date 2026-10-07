@@ -129,12 +129,12 @@
 
   paintModes();   // 进屏时先按默认选中态上一次色
 
-  // 「开始第一轮」：没手动选过就用标准版兜底，然后进游戏屏
+  // 「开始第一轮」：没手动选过就用标准版兜底，然后交给引擎开局（M6）
   document.getElementById('briefStart').addEventListener('click', function () {
     if (Store.mode === null || Store.mode === undefined) {
       Store.setMode('standard');
     }
-    showScreen('game');
+    Engine.start();   // ← M6 之前这里是一句 showScreen('game')，现在由引擎接管
   });
 
 })();

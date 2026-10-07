@@ -56,7 +56,7 @@
     <p class="placeholder">这一屏最终会有：三轮结构说明、试次模式二选一（标准 30 / 快速 16）、知情同意。</p>
     <div class="card">
       <div class="card-head">占位 · 尚未实装</div>
-      <button class="btn btn-primary" onclick="enterRound(1)">开始第一轮 →</button>
+      <button class="btn btn-primary">开始第一轮 →</button>
     </div>
   </div>
 
@@ -69,8 +69,8 @@
     <div class="card">
       <div class="card-head">占位 · 尚未实装</div>
       <div class="btn-row">
-        <button class="btn btn-danger" onclick="finishRound()">立即紧急处理</button>
-        <button class="btn btn-ghost" onclick="finishRound()">可以等待</button>
+        <button class="btn btn-danger" onclick="Engine.respond(true)">立即紧急处理</button>
+        <button class="btn btn-ghost" onclick="Engine.respond(false)">可以等待</button>
       </div>
     </div>
   </div>
@@ -84,7 +84,7 @@
     <div class="card">
       <div class="card-head">占位 · 尚未实装</div>
       <pre id="roundIntro" class="round-intro"></pre>
-      <button class="btn btn-primary" onclick="nextRound()">进入下一轮 →</button>
+      <button class="btn btn-primary">进入下一轮 →</button>
     </div>
   </div>
 
@@ -107,7 +107,7 @@
       </table>
       <div class="btn-row">
         <button class="btn btn-primary" onclick="showScreen('lab')">打开概念实验室 →</button>
-        <button class="btn btn-ghost" onclick="demoRound = 1; showScreen('login')">重新开始 →</button>
+        <button class="btn btn-ghost" onclick="Store.reset(); showScreen('login')">重新开始 →</button>
       </div>
     </div>
   </div>
@@ -147,6 +147,16 @@
 <script src="js/auth.js"></script>
 <script src="js/brief.js"></script>
 
+<!-- 患者：patient-data 是 patient 的素材库，必须排在它前面 -->
+<script src="js/patient-data.js"></script>
+<script src="js/patient.js"></script>
+<script src="js/patient-card.js"></script>
+
+<!-- 游戏：先 scoring（纯计算），再 engine（状态机），最后 round（过渡屏） -->
+<script src="js/scoring.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/round.js"></script>
+
 <script>
 /* ============================================================================
  * 屏幕切换
@@ -183,35 +193,13 @@ function showScreen(id) {
 }
 
 /* ============================================================================
- * ★★★ 以下是骨架用的假流程，只为演示"三轮"的形状 ★★★
- *   真正的轮次状态机由 M6（js/engine.js）实现，届时整段删除。
+ * 骨架阶段的假流程（demoRound / enterRound / finishRound / nextRound）
+ * 已整段删除 —— 三轮状态机现在是 M6（js/engine.js），
+ * 轮次过渡屏是 M7（js/round.js）。游戏屏里那两个 onclick 只是兜底，
+ * 真正的事件绑定在 engine.js 重建 DOM 时用 addEventListener 挂上。
  * ==========================================================================*/
 
-var demoRound = 1;
-
-// 进入第 n 轮
-function enterRound(n) {
-  demoRound = n;
-  document.getElementById('gameTitle').textContent =
-    '第 ' + n + ' 轮 · ' + ROUNDS[n - 1].name;
-  showScreen('game');
-}
-
-// 本轮结束：还有下一轮就去过渡屏，第 3 轮结束直接进结果页
-function finishRound() {
-  if (demoRound >= 3) { showScreen('results'); return; }
-  var next = demoRound + 1;
-  document.getElementById('roundTitle').textContent =
-    '第 ' + demoRound + ' 轮结束 → 进入第 ' + next + ' 轮';
-  // {round2M} 和 {n} 占位符骨架阶段原样显示，替换是 M7 的活
-  document.getElementById('roundIntro').textContent = ROUNDS[next - 1].intro;
-  showScreen('round');
-}
-
-function nextRound() { enterRound(demoRound + 1); }
-
-// 页面加载：先填好第 1 轮的标题，再退回登录屏（骨架仍从登录开始）
-enterRound(1);
+// 页面加载：退回登录屏（同时把开发导航条的高亮同步过来）
 showScreen('login');
 </script>
 

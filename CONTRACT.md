@@ -294,8 +294,28 @@ const TRIAL_MODES = {
 漏报的代价大幅上升。
 ```
 
-> `{恶化人数}` 可用 `Math.max(1, Math.floor(M/2))` 之类的规则生成，
-> 只要有 ≥1 例就有冲击力。
+> `{round2M}` → 替换成玩家第二轮的**真实漏报数** M
+> `{n}` → 替换成 `Math.floor(M / 2)`（"其中几位病情恶化"）
+>
+> **★ M = 0 时必须换一套文案。** 如果玩家第二轮一位危重患者都没漏掉，
+> 上面那套会变成「有 0 位其实是危重患者，其中 0 位在等待期间病情恶化」——
+> 自相矛盾，而且叙事也塌了（没漏人还复盘什么）。
+>
+> 所以 `ROUNDS[2]` 要额外提供一个 `introIfNoMiss`，
+> `round.js` 在 `missCount === 0` 时改用它：
+>
+> ```
+> 📋  上一阶段回顾
+>
+> 上一阶段结束后，科室做了复盘：
+>
+> 你判为"可以等待"的患者中，没有一位是危重患者 —— 这个阶段判断得很稳。
+>
+> 不过院方仍然下达了指令：任何一位危重患者被漏掉，都不可接受。
+>
+> 【本阶段规则变化】
+> 漏报的代价大幅上升。
+> ```
 
 ### 3.6 结果页必须有的三轮对比表
 
@@ -507,8 +527,14 @@ window.PatientCard = {
 window.Scoring = {
   // trials: Trial[] → RoundResult（见 4.3）
   summarizeRound(round, trials, roundConfig),
+
+  // 一轮的判定：真实情况 + 玩家反应 → 'H'|'M'|'FA'|'CR'
+  outcomeOf(hasSignal, responded),
+
   // 三轮 → Session（见 4.4）
-  summarizeSession(student, rounds)
+  //   startedAt 必传。不传的话 Session.startedAt 会等于结束时刻，
+  //   教师后台看到的"用时"恒为 0。
+  summarizeSession(student, mode, rounds, startedAt),
 };
 ```
 
@@ -526,8 +552,20 @@ window.Store = {
   setMode(modeKey),       // 'standard' | 'quick'
   currentMode(),          // → TRIAL_MODES[Store.mode]（见 3.4.1）
   pushRound(roundResult), // 一轮结束后调用，追加进 rounds
+  clearRounds(),          // ★ 只清 rounds，保留 student / mode
   reset(),                // 回到初始状态（重新开始时用）
 };
+```
+
+> **`reset()` 和 `clearRounds()` 的区别**（很容易搞混）：
+>
+> | | 清什么 | 什么时候用 |
+> |---|---|---|
+> | `reset()` | student + mode + rounds 全清 | 玩完一局，**回登录页** |
+> | `clearRounds()` | **只清 rounds** | 一局刚开始，**student 和 mode 刚填好不能丢** |
+>
+> 重开一局时必须清空上一局的 rounds，否则第二轮实验会带着第一轮的数据。
+> 这时候**不能调 `reset()`** —— 它会把玩家刚在登录页填的学号姓名一起清掉。
 ```
 
 > **【铁律】不许任何模块用自己定义的全局变量存这几样数据，一律走 `Store`。**
@@ -570,6 +608,39 @@ window.Utils = {
 > - 要的是**一个数值**（体征、severity）→ `randN`
 >
 > 两者都必须接受 `rng` 参数并透传，否则将来没法用固定种子复现同一批患者。
+
+### 5.5 图表接口 ★ 实验室 4 个面板共用
+
+```js
+// js/chart.js —— ECharts 的薄封装：统一主题 + 窗口自适应
+// 依赖：js/vendor/echarts.min.js（本地文件，绝不许改成 CDN）
+window.Chart = {
+  // 建一个图表，套用统一主题，返回 ECharts 实例
+  //   dom:    容器元素（必须有确定的宽高，否则图表高度会变成 0）
+  //   option: 标准 ECharts option，会与主题合并
+  make(dom, option),
+
+  // 返回一份套好主题的基础 option，调用方在上面覆盖
+  base(overrides),
+
+  // 主题色（从 CSS 变量实时读取 —— 改 tokens.css 图表就跟着变）
+  color(),   // → { primary, accent, normal, watch, danger, text, dim, grid }
+};
+```
+
+**为什么必须有这一层**：4 个面板如果各写各的 ECharts 配置，
+悬停提示的背景色、字体、配色会各不一样，看起来像四个不同的网站拼起来的。
+统一走 `Chart.make()`，4 个面板才像**一个系统**。
+
+**硬约束**
+
+- ECharts 必须从 **`js/vendor/echarts.min.js`**（本地文件）加载，**绝不许引 CDN**。
+  教室网络经常不靠谱，CDN 一挂整个实验室白屏。
+- `Chart.make()` 内部必须处理 `window.resize` —— 窗口宽度变了图表要跟着重画，
+  否则手机上会溢出。
+- **颜色一律从 CSS 变量实时读取**（`getComputedStyle(document.documentElement)`），
+  不许在 `chart.js` 里写死色值。
+- 数字/坐标轴标签用 `--font-mono`，和生命体征保持一致。
 
 ---
 
