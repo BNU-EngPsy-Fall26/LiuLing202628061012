@@ -172,6 +172,7 @@ window.Utils = (function () {
     pick: pick,
     shuffle: shuffle,
     mean: mean,
+    rand01: u,   // 0~1 均匀数适配器（randN / pick 内部用的就是它，各模块也直接用）
   };
 
 })();
