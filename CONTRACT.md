@@ -434,11 +434,11 @@ accuracy = (counts.H + counts.CR) / totalTrials;
 |---|---|---|---|---|
 | M0 | 契约 | `CONTRACT.md` | — | 已完成 |
 | M1 | 配置 + 设计系统 + 骨架 | `js/config.js` `js/utils.js`<br>`styles/tokens.css` `styles/main.css` `index.html` | M0 | 否，先做 |
-| M2 | 登录与会话 | `js/auth.js` | M1 | ✅ |
+| M2 | 登录与会话状态 | `js/store.js` `js/auth.js` | M1 | ✅ |
 | M3 | 实验说明屏（含试次模式选择） | `js/brief.js` | M1 | ✅ |
 | M4 | **患者数据生成** | `js/patient.js` 的 `generate()`<br>素材：`js/patient-data.js` | M1 | ✅ |
 | M5 | **患者卡片渲染** | `js/patient-card.js` 的 `render()` | M1 | ✅ |
-| M6 | 游戏状态机（3 轮 × N 试次，N 由模式决定） | `js/engine.js` | M1 M4 M5 | ✅ |
+| M6 | 游戏状态机（3 轮 × N 试次，N 由模式决定） | `js/engine.js` `js/scoring.js` | M1 M4 M5 | ✅ |
 | M7 | 轮次过渡屏 | `js/round.js` | M1 | ✅ |
 | M8 | 结果页（★ 三轮对比表） | `js/results.js` | M1 | ✅ |
 | M9 | 实验室 · 两个分布 | `js/lab/dist.js` | M1 | ✅ |
@@ -480,8 +480,10 @@ window.PatientGen = {
 window.PatientCard = {
   // el: 容器元素
   // patient: 见 4.1
-  // opts.reveal: false = 判断前（不显示真实情况）, true = 反馈态
-  render(el, patient, { reveal })
+  // opts.reveal:  false = 判断前（不显示真实情况）
+  //               true  = 反馈态（显示判断结果和真实情况）
+  // opts.outcome: 'H' | 'M' | 'FA' | 'CR'，仅 reveal=true 时需要
+  render(el, patient, { reveal, outcome })
 };
 ```
 
@@ -501,6 +503,33 @@ window.Scoring = {
   summarizeSession(student, rounds)
 };
 ```
+
+### 5.3 会话状态接口 ★ 四个模块共享，必须统一
+
+```js
+// js/store.js —— 全局会话状态（唯一真源）
+window.Store = {
+  student: null,     // { id, name } | null（游客模式为 null）
+  mode: null,        // 'standard' | 'quick'
+  rounds: [],        // RoundResult[]（见 4.3），一场实验最多 3 个
+
+  setStudent(id, name),   // name 传 null 表示游客模式
+  isGuest(),              // → boolean
+  setMode(modeKey),       // 'standard' | 'quick'
+  currentMode(),          // → TRIAL_MODES[Store.mode]（见 3.4.1）
+  pushRound(roundResult), // 一轮结束后调用，追加进 rounds
+  reset(),                // 回到初始状态（重新开始时用）
+};
+```
+
+> **【铁律】不许任何模块用自己定义的全局变量存这几样数据，一律走 `Store`。**
+>
+> 理由：`student` 和 `mode` 是**跨模块**的数据 ——
+> M2 写入、M3 写入、M6 读取、M7 读取、M8 读取，五个模块共享。
+> 各存各的，早晚对不上，而且这种 bug 最难查（程序不报错，只是默默用错值）。
+>
+> **判断标准**：如果两个以上模块都要读它 → 放 `Store`；
+> 只有一个模块自己用 → 放那个模块自己的局部变量，别污染 Store。
 
 ---
 
