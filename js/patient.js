@@ -50,7 +50,7 @@ window.PatientGen = (function () {
   }
 
   /* --------------------------------------------------------------------------
-   * drawHint(severity, rules, pool, rng) —— 抽一条"有噪声的文字线索"
+   * drawHint(severity, rules, pool, rng, exclude) —— 抽一条"有噪声的文字线索"
    *
    *   主诉（契约 3.3）和来院方式（契约 3.3.1）用的是【完全相同的机制】，
    *   只是池子和规则不同，所以这段逻辑只写一份，两边各调一次：
@@ -67,9 +67,16 @@ window.PatientGen = (function () {
    *
    *   ★ 这里不许看 hasSignal —— 它只收一个 severity 数值。
    *     信号患者和噪音患者走的就是这一条路径，没有第二条。
+   *
+   *   exclude  可选：本局已经用过的句子（字符串数组，见 generate 的注释）。
+   *            ★ 只有主诉传它 —— 来院方式不去重（它每档只有 12 条，
+   *              去重做不到，而且玩家对它的重复不像主诉那么敏感）。
+   *            ★ 排除【不额外消耗随机数】：不管排掉几条，最后都只调一次
+   *              Utils.pick()。所以同一个 rng 种子下，定档、漂移、体征和
+   *              来院方式的抽样序列，和加 exclude 之前一模一样。
    * ------------------------------------------------------------------------ */
 
-  function drawHint(severity, rules, pool, rng) {
+  function drawHint(severity, rules, pool, rng, exclude) {
     // ① 按 bounds 定出实际档位
     var tier = severity < rules.bounds[0] ? 'mild'
              : severity < rules.bounds[1] ? 'mid'
@@ -84,8 +91,24 @@ window.PatientGen = (function () {
       idx = Utils.clamp(idx + dir, 0, rules.order.length - 1);
     }
 
-    // ③ 从该档随机抽一句
-    return Utils.pick(pool[rules.order[idx]], rng);
+    var tierPool = pool[rules.order[idx]];
+
+    // ③ 先把本局用过的那几条从这个档的池子里剔掉
+    //    （只动"抽哪一条"，不动"从哪一档抽" —— 分布的档位构成不受影响）
+    if (exclude && exclude.length) {
+      var kept = [];
+      for (var k = 0; k < tierPool.length; k++) {
+        if (exclude.indexOf(tierPool[k]) === -1) kept.push(tierPool[k]);
+      }
+      // ④ ★ 兜底：整档都被用过 → 退回完整池子。
+      //    不报错、不返回空 —— 一局 90 次抽取偶尔会超过 45 条的池子容量
+      //    （实测：标准版 2000 局里有 11 局撞上，其中最多的一局重复了 3 条），
+      //    那时宁可重复一条，也不能让玩家看到空白的主诉或者页面直接崩掉。
+      if (kept.length) tierPool = kept;
+    }
+
+    // ⑤ 从（剩下的）池子里随机抽一条 —— 无论如何只调这一次
+    return Utils.pick(tierPool, rng);
   }
 
   /* --------------------------------------------------------------------------
@@ -94,6 +117,19 @@ window.PatientGen = (function () {
    *   opts.hasSignal  boolean   这位患者是否真的需要紧急处理
    *   opts.dPrime     number    本轮系统设定的 d′（缺省用 window.D_PRIME）
    *   opts.rng        可选      { next: function(){ return 0~1 } }
+   *   opts.exclude    可选      本局已经用过的【主诉句子】数组。
+   *                            抽主诉时先从该档池子里剔掉它们；
+   *                            剔除后池子空了就退回完整池子（不报错、不返回空）。
+   *                            不传 / undefined / [] 时行为与加这个参数之前
+   *                            完全一样。来院方式（arrival）不看它。
+   *
+   *   ★★ 为什么是"调用方传进来"，而不是 generate() 自己记一本"用过的" ★★
+   *      generate() 必须保持无副作用：同样的输入 → 同样的输出。
+   *      如果本文件内部自己维护一个已用集合，那么"连续生成 5000 位患者"
+   *      的测试脚本行为会变 —— 池子用完之后，后面的患者只能重复，
+   *      于是之前所有基于"大量生成、看分布"的验证方法全部失效。
+   *      所以这本账放在调用方（js/engine.js）手里。
+   *      ⚠️ 以后谁想"顺手优化"成内部状态，先看这段。
    *
    * → Patient（结构见 CONTRACT.md 4.1）
    * ------------------------------------------------------------------------ */
@@ -105,6 +141,9 @@ window.PatientGen = (function () {
                    ? window.D_PRIME
                    : opts.dPrime;
     var rng = opts.rng;   // 可能为 undefined，Utils 内部会兜底成 Math.random
+
+    // 本局已用过的主诉（可选）。空数组和 undefined 是同一个意思：不排除任何东西。
+    var exclude = opts.exclude;
 
     /* ======================================================================
      * 第一步：采样底层决策变量 severity（CONTRACT.md 3.2）
@@ -149,7 +188,7 @@ window.PatientGen = (function () {
      * ==================================================================== */
 
     var chiefComplaint = drawHint(severity, PatientData.tierRules,
-                                  PatientData.complaints, rng);
+                                  PatientData.complaints, rng, exclude);
     var arrival        = drawHint(severity, PatientData.arrivalRules,
                                   PatientData.arrivals, rng);
 

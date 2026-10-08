@@ -10,6 +10,11 @@
  *     练习轮和正式轮走的是【同一个】runRound()，只差 isPractice 这一个开关
  *     （不计分 + 顶部那句「练习 · 不计分」）。别把试次循环复制成两份。
  *
+ *   ★ 主诉一局内不重复：本文件维护 state.usedComplaints 这本"用过的"账，
+ *     每次出患者时传给 PatientGen.generate() 的 exclude（见 6. nextTrial）。
+ *     这不是体验问题 —— 同一条主诉第二次出现时，反馈已经把答案告诉过玩家了，
+ *     他会改成回忆而不是判断。清单的清零时机见 runRound()。
+ *
  * 【三条它必须守住的东西】
  *
  *   1. ★ 判断之前不许读 patient.hasSignal（契约第 8 节铁律第 3 条）
@@ -76,7 +81,7 @@ window.Engine = (function () {
     nNoise:         6,
   };
 
-  var HINT_WAIT    = '看清主诉和生命体征，再点下面的按钮。';
+  var HINT_WAIT    = '看清主诉和生命体征，再做判断。';
   var HINT_FEEDBACK = '已记录 —— 正在送入下一位……';
 
   /* --------------------------------------------------------------------------
@@ -127,6 +132,9 @@ window.Engine = (function () {
    *               但它们在 finishRound() 里被直接丢掉 —— 不进 Store
    *   patientRng  出患者 + 洗牌序列用
    *   cardRng     反馈文案用（和上面那个分开，免得抽一句话就打乱患者序列）
+   *   usedComplaints  本局已经出现过的主诉句子（★ 去重用，见 6. nextTrial）
+   *               它是【唯一】一本"用过的"账 —— patient.js 那边不记，
+   *               每次都由这里现传进去（理由见 js/patient.js 的 generate 注释）
    * ------------------------------------------------------------------------ */
 
   var state = {
@@ -143,6 +151,7 @@ window.Engine = (function () {
     trials: [],
     patientRng: null,
     cardRng: null,
+    usedComplaints: [],
   };
 
   /* --------------------------------------------------------------------------
@@ -321,6 +330,21 @@ window.Engine = (function () {
     state.awaiting = false;
     state.startedAt = 0;
 
+    /* ★ 主诉去重清单在哪儿清零（任务书 · 主诉一局内不重复）
+     *
+     *   练习轮开始时清一次、正式第一轮开始时再清一次 —— 就这两处。
+     *   于是：练习轮内部不重复；正式三轮共用同一份清单，三轮之间也不重复。
+     *
+     *   【为什么不跨练习轮合成一份】练习 12 位 + 正式 90 位 = 102 次抽取，
+     *   而池子是 45 条/档 —— 总抽取量会超过池子，强行跨段去重会让后面的
+     *   轮次频繁退回完整池子，反而不稳定。分成两段之后，
+     *   每段（12 次 / 90 次）都在池子容量能承受的范围里。
+     *
+     *   【为什么不放在 startPractice() / startRound() 里】那两个函数都只是
+     *   runRound() 的薄包装，写在这儿才能保证"所有开局路径都清了账"。
+     */
+    if (state.round === 0 || state.round === 1) state.usedComplaints = [];
+
     // 每轮一套自己的 rng：种子从场次种子推出来，各轮互不相同、
     // 但同一场实验重放时能一模一样地复现那一批患者。
     // 练习轮的 roundIndex 是 0，用的种子和三场正式轮也不会撞。
@@ -372,7 +396,18 @@ window.Engine = (function () {
       hasSignal: hasSignal,
       dPrime:    window.D_PRIME,      // 三轮相同（config.js 是唯一真源）
       rng:       state.patientRng,    // ★ 这个口子要留着，复现同一批患者靠它
+      exclude:   state.usedComplaints, // ★ 本段已用过的主诉，别再出现第二次
     });
+
+    /* ★ 出完这一位立刻记账（任务书 · 主诉一局内不重复）
+     *
+     *   记的是主诉句子本身，不是下标 —— 池子是可变的，句子才是玩家看到的东西。
+     *   为什么必须现在记、而不是等玩家点完按钮：feedback 之后玩家已经知道答案了，
+     *   同一条主诉第二次出现时就变成"回忆"而不是"判断"，那是效度问题不是体验问题。
+     *   从这里往下的清单内容不许写进 DOM（它本身就是主诉，页面上本来就看得见，
+     *   但别为了调试顺手 console.log 整本账 —— 那等于把这一段的主诉全列出来）。
+     */
+    state.usedComplaints.push(patient.chiefComplaint);
 
     state.patient   = patient;
     state.startedAt = performance.now();
