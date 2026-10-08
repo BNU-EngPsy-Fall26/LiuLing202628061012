@@ -382,3 +382,158 @@ main{
     height: 200px;
   }
 }
+
+/* ============================================================================
+ * 11. 监护仪面板（视觉层 · 第 1 阶段）
+ *
+ * 游戏屏里、患者卡片【上方】的那块仪器面板。纯增量：把 #monitorPanel 从页面上
+ * 拿掉，游戏一个字都不受影响。
+ *
+ * 【高度必须定死】画布和读数行都用固定的 px 高度 —— 一旦某一项的高度跟着内容
+ *   （患者、文字长短、波形）变，下面的患者卡片就会上下跳，读数会看串行。
+ *   自测里那条"连着渲染 20 位患者，体征行的 top 只能有 1 个值"盯的就是这里。
+ *
+ * 【底色比卡片更深】一块嵌在暗处的仪器屏：底色 #080D12 比 --c-bg 还暗一档，
+ *   外圈一圈细边（--c-border），里面靠光晕提亮。
+ * ==========================================================================*/
+
+/* 还没渲染时不留任何空隙（render 之后里面才有 .monitor-panel） */
+#monitorPanel:empty{
+  display: none;
+}
+
+.monitor-panel{
+  margin-bottom: 16px;
+  padding: 12px 16px 14px;
+  background: #080D12;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  /* 微弱的内发光：深色底 + 一点点青绿，像屏幕自己在发亮 */
+  box-shadow: inset 0 0 26px rgba(46, 211, 166, .055);
+}
+
+/* ---- 屏幕区：报警灯 + 波形 ---- */
+
+.monitor-screen{
+  position: relative;
+}
+
+.monitor-ecg{
+  display: block;
+  width: 100%;
+  height: 96px;   /* ★ 定死。改成 auto 就会让下面的卡片随波形抖动 */
+}
+
+/* ---- 报警灯：左上角的小圆点 ---- */
+
+.monitor-alarm{
+  position: absolute;
+  top: 6px;
+  left: 2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  /* 光晕（任务书 §二④） */
+  box-shadow: 0 0 8px currentColor, 0 0 18px currentColor;
+}
+
+/* 颜色和闪烁速度都由 severity 那一档决定（阈值见 PatientData.tierRules.bounds） */
+
+.monitor-alarm.normal{
+  color: var(--c-normal);
+  animation: none;      /* 常亮，不闪 */
+  opacity: 1;
+}
+
+.monitor-alarm.watch{
+  color: var(--c-watch);
+  animation: monitor-blink 1s ease-in-out infinite;    /* 慢闪：约 1 秒一次 */
+}
+
+.monitor-alarm.danger{
+  color: var(--c-danger);
+  animation: monitor-blink .5s ease-in-out infinite;   /* 快闪：约 0.5 秒一次 */
+}
+
+/* 闪的是 opacity（不是 JS 定时器，任务书 §二③） */
+@keyframes monitor-blink{
+  0%, 100%{ opacity: 1;   }
+  50%     { opacity: .15; }
+}
+
+/* ---- 读数：心率 / 血氧 / 血压 ---- */
+
+.monitor-readouts{
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.monitor-readout{
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.monitor-readout-label{
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--c-text-dim);
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+  white-space: nowrap;
+}
+
+/* 大号等宽数字。字号用 clamp 跟着窗口缩 —— 窄屏上靠缩小让位，绝不折行
+   （折了行，三个读数就不在一条水平线上，而且会把下面的卡片顶下去）。
+
+   ★ 4.2vw 这个系数是量出来的，不是拍的：最坏的一组读数是「200/126」+「mmHg」，
+     等宽字体一个字符约 0.6em，要在 400px 视口下塞进 1/3 个面板宽度，
+     数字字号上限约 17px。写大了就会被 text-overflow 裁掉——血压只剩「200/12…」，
+     玩家读数读一半，比不显示还糟。 */
+.monitor-readout-value{
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1rem, 4.2vw, 2rem);
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 数字的颜色走 .vital-normal / .vital-watch / .vital-danger —— 和患者卡片
+   那一行是同一套类名、同一套色值（见本文件第 5 节）。这里不重复定义颜色。 */
+
+.monitor-readout-unit{
+  font-size: 0.66em;
+  font-weight: 500;
+  color: var(--c-text-dim);
+  margin-left: 2px;
+}
+
+/* ---- 窄屏：整体压矮一档，别把页面撑爆 ---- */
+
+@media (max-width: 700px){
+
+  .monitor-panel{
+    padding: 10px 12px 12px;
+    margin-bottom: 12px;
+  }
+
+  .monitor-ecg{
+    height: 72px;
+  }
+
+  .monitor-readouts{
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .monitor-alarm{
+    top: 4px;
+    left: 0;
+    width: 8px;
+    height: 8px;
+  }
+}

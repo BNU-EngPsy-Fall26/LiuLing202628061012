@@ -66,6 +66,13 @@
   <div class="screen" id="screen-game">
     <h2 id="gameTitle">第 1 轮 · 常规值班</h2>
     <p class="placeholder">这一屏最终会有：患者卡片（主诉 + 生命体征）、「立即紧急处理 / 可以等待」两个按钮、判断后的即时反馈。</p>
+
+    <!-- 监护仪面板的容器（视觉层 · 第 1 阶段）：位置在患者卡片上方。
+         ⚠️ 这一块是 M1 骨架留下的静态占位，运行时会被 js/engine.js 里那句
+         screen.innerHTML = [...] 整个换掉 —— 所以【活的】那个 #monitorPanel
+         建在 engine.js 里，两处必须都在（详见交付说明）。 -->
+    <div id="monitorPanel"></div>
+
     <div class="card">
       <div class="card-head">占位 · 尚未实装</div>
       <div class="btn-row">
@@ -167,6 +174,9 @@
 <script src="js/patient.js"></script>
 <script src="js/patient-card.js"></script>
 
+<!-- 监护仪面板（视觉层 · 第 1 阶段）。★ 必须排在 engine.js 前面：engine 出患者时要调 Monitor.render -->
+<script src="js/monitor.js"></script>
+
 <!-- 游戏：先 scoring（纯计算），再 engine（状态机），最后 round（过渡屏） -->
 <script src="js/scoring.js"></script>
 <script src="js/engine.js"></script>
@@ -221,6 +231,11 @@ function showScreen(id) {
   }
 
   window.scrollTo(0, 0);
+
+  // 离开游戏屏时停掉监护仪的波形动画（视觉层 · 第 1 阶段）。
+  // 波形是 requestAnimationFrame 驱动的：屏都藏起来了还接着画，
+  // 就是白烧 CPU。所有换屏都走这个函数，所以停在这一处就够了。
+  if (id !== 'game' && window.Monitor) Monitor.stop();
 
   // 进概念实验室时，默认打开第一个面板（懒渲染，见下面的 showLab）
   if (id === 'lab') {

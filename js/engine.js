@@ -193,6 +193,11 @@ window.Engine = (function () {
         'color:var(--c-text-dim);letter-spacing:0.04em;">击中 0 · 误报 0</span>',
     '</div>',
 
+    // 监护仪面板的容器（视觉层 · 第 1 阶段）：位置在患者卡片【上方】。
+    // ★ 必须建在这里，不能只写在 index.html —— 上面那句 screen.innerHTML
+    //   会把 index.html 里那一屏的内容整个换掉（那里面那块是 M1 的骨架占位）。
+    '<div id="monitorPanel"></div>',
+
     // 患者卡片的宿主容器：PatientCard.render() 每次都把它清空重画
     '<div id="patientCardHost"></div>',
 
@@ -414,6 +419,12 @@ window.Engine = (function () {
     state.awaiting  = true;
 
     PatientCard.render(el.host, patient, { reveal: false });
+
+    // 视觉层（第 1 阶段）：同一处、同一位患者，交给监护仪面板。
+    // ★ 纯增量 —— 它的返回值不参与后面任何逻辑，删掉这一行游戏照样跑（自测⑤）。
+    // ★ 只读 patient.vitals / patient.severity，绝不看那位患者的真实答案（自测①）。
+    if (window.Monitor) Monitor.render(document.getElementById('monitorPanel'), patient);
+
     setButtons(true);
     setProgress();
   }
