@@ -127,17 +127,30 @@ window.LabDist = (function () {
       sliderRow('lab-dist-d', 'lab-dist-sld-d', '敏感性 d′', 0, 4, 0.1, DEF_D,
                 'd′ 越大，两条曲线分得越开 —— 这是"能力"。'),
       sliderRow('lab-dist-c', 'lab-dist-sld-c', '判定标准 c', -2, 2, 0.05, DEF_C,
-                'c 越大 = 刀越靠右 = 越保守 —— 这是"态度"，它不动 d′，只动 β。'),
+                'c 越大 = 判定线越靠右 = 越保守 —— 这是"态度"，它不动 d′，只动 β。'),
       '</div>',
 
       /* — 主图 — */
       '<div class="card">',
       '  <div class="card-head">噪音与信号两个分布 · 判定线切在哪儿</div>',
       '  <div class="chart lab-dist-chart"></div>',
+      /* 图上两块阴影的说明：★ 这里只说了一件事 —— "那块面积意味着什么"。
+         原来写的是"（刀右边、噪音那一片）"：只说位置、不说意思，
+         不懂 SDT 的人读完还是不知道误报率到底是什么；
+         而且同一个东西在这张卡片里被叫成"刀 / 判定线 / 判定标准 c"三个名字。
+         现在：名字统一成【判定线】（比喻只在上面那句里用一次），
+         每条说明都补上"你却判成了什么"。 */
       '  <p style="margin:10px 0 0;font-size:0.82rem;color:var(--c-text-dim);line-height:1.6;">',
-      '    横轴是判定标准 c 的尺子：噪音分布在 −d′/2、信号分布在 +d′/2，两峰相距 d′。<br>',
-      '    <span style="color:var(--c-danger);">■ 红色阴影 = 误报率 P(FA)</span>（刀右边、噪音那一片）· ',
-      '    <span style="color:var(--c-accent);">■ 绿色阴影 = 漏报率 P(M)</span>（刀左边、信号那一片）。',
+      '    想象你在两条曲线重叠的地方切下去 —— 切在哪儿由 c 决定，那一条线就是<b>判定线</b>。<br>',
+      '    横轴是判定标准 c 的尺子：噪音分布在 −d′/2、信号分布在 +d′/2，两峰相距 d′。',
+      '  </p>',
+      '  <p style="margin:8px 0 0;font-size:0.82rem;line-height:1.7;">',
+      '    <span style="color:var(--c-danger);">■ 红色阴影的面积 = 误报率 P(FA)</span><br>',
+      '    <span style="color:var(--c-text-dim);">判定线<b>右</b>侧的噪音 —— 其实没有信号，你却判成了「有」。</span>',
+      '  </p>',
+      '  <p style="margin:6px 0 0;font-size:0.82rem;line-height:1.7;">',
+      '    <span style="color:var(--c-accent);">■ 绿色阴影的面积 = 漏报率 P(M)</span><br>',
+      '    <span style="color:var(--c-text-dim);">判定线<b>左</b>侧的信号 —— 真的有信号，你却判成了「无」。</span>',
       '  </p>',
       '</div>',
 
@@ -168,7 +181,7 @@ window.LabDist = (function () {
       '    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">',
       metricBox('敏感性 d′', 'lab-dist-v-d', '--c-primary', '两条曲线分开的程度'),
       metricBox('似然比判据 β', 'lab-dist-v-beta', '--c-accent', '&gt; 1 严格 · &lt; 1 宽松'),
-      metricBox('判定标准 c', 'lab-dist-v-c', '--c-primary', '刀的位置'),
+      metricBox('判定标准 c', 'lab-dist-v-c', '--c-primary', '判定线在哪'),
       metricBox('非参数面积 A′', 'lab-dist-v-ap', '--c-accent', '0.5 = 随机 · 1.0 = 完美'),
       '    </div>',
       '  </div>',
