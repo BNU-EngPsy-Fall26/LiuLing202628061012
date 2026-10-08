@@ -231,10 +231,19 @@ window.PatientCard = (function () {
   }
 
   /* --------------------------------------------------------------------------
-   * 6. 主诉
+   * 6. 主诉 + 来院方式（契约 3.3.1）
    *
-   * 固定最小高度（约 3 行）—— 主诉有长有短，不固定的话每换一位患者，
-   * 下面的生命体征就会上下跳，读起来很累，也容易看串行。
+   * 固定最小高度（主诉约 3 行 + 来院方式固定 1 行）—— 这两行都有长有短，
+   * 不固定的话每换一位患者，下面的生命体征就会上下跳，读起来很累，
+   * 也容易看串行。两行合起来算一个整体，所以要一起保证。
+   *   主诉     → min-height 3 行；超过 3 行的长主诉仍然会把它撑高（改动前就是这样）
+   *   来院方式 → 强制单行（nowrap）：一个块永远是整整一行高，不随文字长短变
+   *
+   * 【来院方式为什么不上色】契约 2.4 的分档是"数值偏离正常程度"，
+   *   来院方式是一句话，没有"数值"，也就没有分档这回事。
+   *   整行统一用 --c-text-dim：它是辅助线索，不许和主诉抢注意力。
+   *   也正因为它不分档，判断态和反馈态长得一模一样 ——
+   *   它不参与"真实情况"的揭示，两种状态下都由这里画，没有第二条路径。
    * ------------------------------------------------------------------------ */
 
   function renderComplaint(patient) {
@@ -253,6 +262,20 @@ window.PatientCard = (function () {
       patient.chiefComplaint || '');
     body.className = 'patient-complaint-text';
     wrap.appendChild(body);
+
+    // —— 来院方式：字号比主诉小一号（clamp 让它跟着窗口缩，窄屏也不会折行），
+    //    行高固定，nowrap + ellipsis 是"永远只占一行"的硬保证：
+    //    万一真的装不下，尾字被省略号裁掉，也不会把下面的体征顶下去
+    if (patient.arrival) {
+      var arrival = makeEl('div',
+        'margin-top:6px;' +
+        'font-size:clamp(0.78rem, 3.2vw, 0.92rem);' +
+        'line-height:1.6;color:var(--c-text-dim);' +
+        'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;',
+        patient.arrival);
+      arrival.className = 'patient-arrival';
+      wrap.appendChild(arrival);
+    }
 
     return wrap;
   }
@@ -450,8 +473,9 @@ window.PatientCard = (function () {
  * 1. 判断路径（renderIdentity / renderComplaint / renderVitals）
  *    从头到尾没有读过那个字段，也没有任何 if 依赖它。
  *    生命周期里唯一的输入是 patient.vitals 和 patient 的展示字段
- *    （id / name / age / sex / chiefComplaint），这些东西信号患者和噪音患者
+ *    （id / name / age / sex / chiefComplaint / arrival），这些东西信号患者和噪音患者
  *    完全一样地处理 —— 配色只看数值离正常的距离（VITAL_RANGES）。
+ *    arrival 整行固定用 --c-text-dim，不查表、不上色、不分档。
  *
  * 2. 全文只有 renderFeedback() 里读过一次真实答案，而且：
  *    - 只在 reveal:true（判断已经做完）时才走到；

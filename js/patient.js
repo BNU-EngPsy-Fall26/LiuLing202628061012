@@ -3,7 +3,7 @@
  *
  * 【这个文件干什么】
  *   把"这位患者是不是真的危重"（hasSignal）变成一整套玩家看得见的
- *   生命体征 + 主诉文案，也就是 CONTRACT.md 4.1 的 Patient 对象。
+ *   生命体征 + 主诉文案 + 来院方式，也就是 CONTRACT.md 4.1 的 Patient 对象。
  *
  *   它只生成数据，不碰 DOM（CONTRACT.md 5.1）——
  *   所以它可以在没有浏览器的环境里单独跑、单独测。
@@ -47,6 +47,45 @@ window.PatientGen = (function () {
   // 数字补成 4 位，'P-0001' ~ 'P-9999'
   function pad4(n) {
     return ('000' + n).slice(-4);
+  }
+
+  /* --------------------------------------------------------------------------
+   * drawHint(severity, rules, pool, rng) —— 抽一条"有噪声的文字线索"
+   *
+   *   主诉（契约 3.3）和来院方式（契约 3.3.1）用的是【完全相同的机制】，
+   *   只是池子和规则不同，所以这段逻辑只写一份，两边各调一次：
+   *     ① 按 rules.bounds 定出实际档
+   *     ② 以 rules.adjacentChance 的概率往相邻档偏一档，方向随机
+   *     ③ 从该档的池子里随机抽一条
+   *
+   *   顺序不能换：先定档、再漂移、最后抽句 —— 漂移是在"档"上做的，
+   *   不是重新按 severity 算一遍。
+   *
+   *   边界和比例一律读自 rules，本文件不许写死（契约 3.3）。
+   *   注意 mild（下标 0）往 -1 偏会被夹住＝保持不变，所以 mild 实际是
+   *   "有 15% 概率变 mid"；severe 同理。这是 patient-data.js 里说明过的行为。
+   *
+   *   ★ 这里不许看 hasSignal —— 它只收一个 severity 数值。
+   *     信号患者和噪音患者走的就是这一条路径，没有第二条。
+   * ------------------------------------------------------------------------ */
+
+  function drawHint(severity, rules, pool, rng) {
+    // ① 按 bounds 定出实际档位
+    var tier = severity < rules.bounds[0] ? 'mild'
+             : severity < rules.bounds[1] ? 'mid'
+             :                              'severe';
+
+    var idx = rules.order.indexOf(tier);
+
+    // ② 以 adjacentChance 的概率往相邻档偏一档，方向随机 —— ★ 必须双向
+    //    只往一个方向偏会教出错误的临床直觉，理由见 patient-data.js 的注释。
+    if (Utils.rand01(rng) < rules.adjacentChance) {
+      var dir = Utils.rand01(rng) < 0.5 ? -1 : 1;
+      idx = Utils.clamp(idx + dir, 0, rules.order.length - 1);
+    }
+
+    // ③ 从该档随机抽一句
+    return Utils.pick(pool[rules.order[idx]], rng);
   }
 
   /* --------------------------------------------------------------------------
@@ -98,32 +137,21 @@ window.PatientGen = (function () {
                       :                   '昏迷';
 
     /* ======================================================================
-     * 第三步：抽主诉文案
+     * 第三步：抽两条"有噪声的文字线索" —— 主诉 + 来院方式
      *
-     * 规则全部读自 PatientData.tierRules，本文件不许写死边界和比例。
-     * 顺序：① 按 bounds 定实际档 → ② adjacentChance 概率偏移一档 → ③ 抽句
+     * 两条线索机制完全一样，只是池子和规则不同：
+     *   主诉     读 PatientData.complaints + PatientData.tierRules
+     *   来院方式 读 PatientData.arrivals   + PatientData.arrivalRules
+     * 都走同一个 drawHint()，只是传进去的参数不一样。
+     *
+     * ★ 两条都【不许按 hasSignal 分档】：路径完全一样，
+     *   唯一的差别是上面那个 severity 的数值不同（契约 3.2 / 3.3.1 铁律）。
      * ==================================================================== */
 
-    var rules = PatientData.tierRules;
-
-    // ① 按 bounds 定出实际档位
-    var tier = severity < rules.bounds[0] ? 'mild'
-             : severity < rules.bounds[1] ? 'mid'
-             :                              'severe';
-
-    var idx = rules.order.indexOf(tier);
-
-    // ② 以 adjacentChance 的概率往相邻档偏一档，方向随机 —— ★ 必须双向
-    //    只往一个方向偏会教出错误的临床直觉，理由见 patient-data.js 的注释。
-    if (Utils.rand01(rng) < rules.adjacentChance) {
-      var dir = Utils.rand01(rng) < 0.5 ? -1 : 1;
-      idx = Utils.clamp(idx + dir, 0, rules.order.length - 1);
-    }
-
-    tier = rules.order[idx];
-
-    // ③ 从该档随机抽一句
-    var chiefComplaint = Utils.pick(PatientData.complaints[tier], rng);
+    var chiefComplaint = drawHint(severity, PatientData.tierRules,
+                                  PatientData.complaints, rng);
+    var arrival        = drawHint(severity, PatientData.arrivalRules,
+                                  PatientData.arrivals, rng);
 
     /* ======================================================================
      * 第四步：拼出 Patient 对象（字段名严格照 CONTRACT.md 4.1）
@@ -147,6 +175,7 @@ window.PatientGen = (function () {
       age:            age,
       sex:            sex,
       chiefComplaint: chiefComplaint,
+      arrival:        arrival,        // ★ 来院方式 / 外观（契约 3.3.1）
       vitals: {
         temp:          temp,
         hr:            hr,
