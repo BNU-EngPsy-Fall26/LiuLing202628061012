@@ -384,17 +384,22 @@ main{
 }
 
 /* ============================================================================
- * 11. 监护仪面板（视觉层 · 第 1 阶段）
+ * 11. 监护仪面板（视觉层 · 第 1 阶段；M视觉1c 重画）
  *
  * 游戏屏里、患者卡片【上方】的那块仪器面板。纯增量：把 #monitorPanel 从页面上
  * 拿掉，游戏一个字都不受影响。
  *
- * 【高度必须定死】画布和读数行都用固定的 px 高度 —— 一旦某一项的高度跟着内容
- *   （患者、文字长短、波形）变，下面的患者卡片就会上下跳，读数会看串行。
- *   自测里那条"连着渲染 20 位患者，体征行的 top 只能有 1 个值"盯的就是这里。
+ * 【布局】左边两条波形上下叠（各占一半高），右边一列三个读数。
+ *   真监护仪就长这样：波形占大头，数字挤在右边一条。
+ *
+ * 【高度必须定死】面板高度写死在 .monitor-panel 上（桌面 240px / 窄屏 195px），
+ *   里面的格子全靠 flex 平分 —— 于是不管患者怎么换、数字几位数、
+ *   波形画成什么样，整块面板的高度一动不动。一旦某项的高度跟着内容走，
+ *   下面的患者卡片就会上下跳，读数会看串行。
+ *   自测里"连着渲染 20 位患者，体征行的 top 只能有 1 个值"盯的就是这里。
  *
  * 【底色比卡片更深】一块嵌在暗处的仪器屏：底色 #080D12 比 --c-bg 还暗一档，
- *   外圈一圈细边（--c-border），里面靠光晕提亮。
+ *   外圈一圈细边（--c-border），里面靠光晕和网格提亮。
  * ==========================================================================*/
 
 /* 还没渲染时不留任何空隙（render 之后里面才有 .monitor-panel） */
@@ -403,8 +408,11 @@ main{
 }
 
 .monitor-panel{
+  display: flex;
+  gap: 12px;
+  height: 240px;              /* ★ 定死。桌面 220~250 的中间值 */
   margin-bottom: 16px;
-  padding: 12px 16px 14px;
+  padding: 12px;
   background: #080D12;
   border: 1px solid var(--c-border);
   border-radius: var(--radius);
@@ -412,24 +420,53 @@ main{
   box-shadow: inset 0 0 26px rgba(46, 211, 166, .055);
 }
 
-/* ---- 屏幕区：报警灯 + 波形 ---- */
+/* ---- 左：两条波形 ---- */
 
+.monitor-waves{
+  flex: 1 1 70%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 波形格：一块小黑屏。
+ *
+ * ★ 方格网 —— 人对监护仪的记忆很大程度就是这片绿格子（任务书 §二）。
+ *   用 CSS 的 repeating-linear-gradient 画，绝对不用 Canvas 画格线
+ *   （Canvas 留着画波形）。
+ *   四层背景叠起来：两层小格（12px，很暗）+ 两层大格（60px = 5 小格，稍亮）。
+ *   颜色是【暗绿】不是白 —— 任务书给的那组 rgba(36,49,63,…) 是蓝灰的，
+ *   这里按"真监护仪的格子是暗绿的"那句用了青绿的低透明度版本。
+ */
 .monitor-screen{
   position: relative;
+  flex: 1 1 0;                /* 两格平分，各占一半高度 */
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background-color: #060A0E;
+  background-image:
+    repeating-linear-gradient(0deg,  rgba(46, 211, 166, .11) 0 1px, transparent 1px 12px),
+    repeating-linear-gradient(90deg, rgba(46, 211, 166, .11) 0 1px, transparent 1px 12px),
+    repeating-linear-gradient(0deg,  rgba(46, 211, 166, .24) 0 1px, transparent 1px 60px),
+    repeating-linear-gradient(90deg, rgba(46, 211, 166, .24) 0 1px, transparent 1px 60px);
 }
 
-.monitor-ecg{
+.monitor-ecg,
+.monitor-pleth{
   display: block;
   width: 100%;
-  height: 96px;   /* ★ 定死。改成 auto 就会让下面的卡片随波形抖动 */
+  height: 100%;               /* 铺满自己那一格，不留空白 */
 }
 
-/* ---- 报警灯：左上角的小圆点 ---- */
+/* ---- 报警灯：心电格左上角的小圆点 ---- */
 
 .monitor-alarm{
   position: absolute;
-  top: 6px;
-  left: 2px;
+  top: 5px;
+  left: 5px;
   width: 9px;
   height: 9px;
   border-radius: 50%;
@@ -464,22 +501,32 @@ main{
   50%     { opacity: .15; }
 }
 
-/* ---- 读数：心率 / 血氧 / 血压 ---- */
+/* ---- 右：读数一列三格 ---- */
 
 .monitor-readouts{
+  flex: 0 0 30%;
+  min-width: 0;
   display: flex;
-  gap: 12px;
-  margin-top: 10px;
+  flex-direction: column;
 }
 
 .monitor-readout{
-  flex: 1 1 0;
+  flex: 1 1 0;                /* 三格平分，每格和左边的波形格同高 */
+  min-height: 0;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.monitor-readout + .monitor-readout{
+  border-top: 1px solid var(--c-border);   /* 三格之间那道横线 */
+  padding-top: 4px;
 }
 
 .monitor-readout-label{
   font-size: 0.72rem;
-  line-height: 1.4;
+  line-height: 1.3;
   color: var(--c-text-dim);
   letter-spacing: 0.08em;
   margin-bottom: 2px;
@@ -489,14 +536,15 @@ main{
 /* 大号等宽数字。字号用 clamp 跟着窗口缩 —— 窄屏上靠缩小让位，绝不折行
    （折了行，三个读数就不在一条水平线上，而且会把下面的卡片顶下去）。
 
-   ★ 4.2vw 这个系数是量出来的，不是拍的：最坏的一组读数是「200/126」+「mmHg」，
-     等宽字体一个字符约 0.6em，要在 400px 视口下塞进 1/3 个面板宽度，
-     数字字号上限约 17px。写大了就会被 text-overflow 裁掉——血压只剩「200/12…」，
+   ★ 4.1vw 这个系数是量出来的，不是拍的：右边这一列只有面板宽度的 30%，
+     最坏的一组读数是「200/126」+「mmHg」，等宽字体一个字符约 0.6em，
+     要在 400px 视口下塞进 100 来像素，数字字号上限约 16.6px（≈4.15vw）。
+     写大了就会被 text-overflow 裁掉 —— 血压只剩「200/12…」，
      玩家读数读一半，比不显示还糟。 */
 .monitor-readout-value{
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: clamp(1rem, 4.2vw, 2rem);
+  font-size: clamp(1rem, 4.1vw, 1.9rem);
   font-weight: 600;
   line-height: 1.15;
   white-space: nowrap;
@@ -519,22 +567,27 @@ main{
 @media (max-width: 700px){
 
   .monitor-panel{
-    padding: 10px 12px 12px;
+    height: 195px;            /* 窄屏 180~210 的中间值 */
+    padding: 10px;
+    gap: 8px;
     margin-bottom: 12px;
   }
 
-  .monitor-ecg{
-    height: 72px;
+  .monitor-waves{
+    gap: 6px;
   }
 
   .monitor-readouts{
-    gap: 8px;
-    margin-top: 8px;
+    flex: 0 0 30%;
+  }
+
+  .monitor-readout-label{
+    font-size: 0.66rem;
   }
 
   .monitor-alarm{
     top: 4px;
-    left: 0;
+    left: 4px;
     width: 8px;
     height: 8px;
   }
