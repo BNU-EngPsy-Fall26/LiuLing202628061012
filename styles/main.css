@@ -316,3 +316,69 @@ main{
     font-size: 0.85rem;
   }
 }
+
+/* ============================================================================
+ * 概念实验室：标签栏 + 面板
+ *
+ * 面板默认全部隐藏，显隐由 index.html 的 showLab() 用行内 style 控制。
+ *
+ * ★ .lab-panel 初始就是 display: none —— 这是刻意的，不是漏写：
+ *   容器还藏着的时候 ECharts 建不出图（读到的宽高都是 0），
+ *   所以必须等它真正显示出来之后，才让模块去渲染。
+ * ==========================================================================*/
+
+.lab-tabs{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0 18px;
+}
+
+.lab-tab{
+  padding: 9px 18px;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--c-text-dim);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color .18s, background .18s, border-color .18s;
+}
+
+.lab-tab:hover{
+  color: var(--c-text);
+  border-color: var(--c-primary);
+}
+
+.lab-tab.active{
+  color: var(--c-bg);
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+}
+
+.lab-panel{
+  display: none;
+}
+
+/* 图表容器：必须给确定的高度，否则 ECharts 会建成 0 高的空白 */
+.chart{
+  width: 100%;
+  height: 340px;
+}
+
+.chart-sm{
+  width: 100%;
+  height: 260px;
+}
+
+@media (max-width: 700px){
+  .chart{
+    height: 250px;
+  }
+
+  .chart-sm{
+    height: 200px;
+  }
+}
