@@ -252,12 +252,53 @@ window.Monitor = (function () {
     return (b && typeof b[0] === 'number' && typeof b[1] === 'number') ? b : [0.4, 1.1];
   }
 
-  function rhythmTier(severity) {
-    if (!isNum(severity)) return 'regular';
+  var TIERS = ['regular', 'ectopic', 'irregular'];
+
+  // 只看 severity 的"理想档"（不含漂移）—— 内部用，别拿它当观察者的口径
+  function idealTier(severity) {
+    if (!isNum(severity)) return 0;
     var b = rhythmBounds();
-    if (severity < b[0]) return 'regular';
-    if (severity < b[1]) return 'ectopic';
-    return 'irregular';
+    if (severity < b[0]) return 0;
+    if (severity < b[1]) return 1;
+    return 2;
+  }
+
+  /* --------------------------------------------------------------------------
+   * 2b.1 ★ 形态档位 = 理想档 + 40% 漂移（M视觉1d 新增）
+   *
+   *   【为什么要漂】M视觉1c 那版是直接按 severity 的三档画形态的，等于给了玩家
+   *   一条【无噪声】的 severity 读数。量化下来：一个只看"波形档位"的观察者
+   *   d′ = 1.06、准确率 76.0%，而理想观察者的天花板才 77.3% ——
+   *   也就是说玩家盯着波形就能拿接近满分，体征都可以不看。这和 M视觉1b 里
+   *   那盏灯是同一个病，只是症状更隐蔽（要"看懂宽大波"才用得上，所以当时没看出来）。
+   *
+   *   【为什么是 40%】和主诉/来院方式是同一套机制，只是比例不同：
+   *       主诉 30% ／ 波形 40% ／ 来院方式 50%
+   *   40% 能把 d′ 从 1.06 压到 ~0.85，和主诉一个量级。压不到 0 ——
+   *   切点 0.4/1.1 正好落在最优判定阈值附近，掺了噪声它仍然是个不错的线索。
+   *   再往下压要靠系统 d′ 那个旋钮，不在这份改动里。
+   *
+   *   【种子 = patient.id】和心搏序列同一个种子。三个理由缺一不可：
+   *     ① 同一位患者重渲染时波形必须一致（否则 frozen 那套铁律自测会不稳）
+   *     ② 不引入新的随机性来源，铁律那套照旧成立
+   *     ③ 不用改 render 的接口（不加 opts.rng）
+   *
+   *   ★ 铁律：只看 severity 和 patient.id，绝不读 hasSignal。
+   * ------------------------------------------------------------------------ */
+
+  var DRIFT = 0.40;        // 漂到相邻档的概率
+
+  function rhythmTier(patient) {
+    var ideal = idealTier(patient && patient.severity);
+    var rand  = makeRng(hashId(patient && patient.id) ^ 0x9E3779B9);
+
+    if (rand() >= DRIFT) return TIERS[ideal];            // 六成：原档
+
+    var dir = rand() < 0.5 ? -1 : 1;                     // 四成：往相邻档漂
+    var i   = ideal + dir;
+    if (i < 0) i = 0;                                    // 两端夹住
+    if (i > 2) i = 2;
+    return TIERS[i];
   }
 
   // "P-0423" → 一个稳定的 32 位整数（FNV-1a）。纯粹的字符串哈希，不含任何患者信息。
@@ -282,8 +323,10 @@ window.Monitor = (function () {
     };
   }
 
-  var CYCLE_BEATS = 120;   // 一个循环 120 拍（hr 80 时约 90 秒）之后原样重复
-                           // （取 120 是因为它能被 4/5/6/8/10 整除：早搏节奏正好走满整圈）
+  var CYCLE_BEATS = 120;   // 一个循环 120 拍（hr 80 时约 90 秒）之后原样重复。
+                           // 8 拍和 10 拍的早搏节奏正好走满整圈；9 拍的会在接缝处
+                           // 差一拍（约 90 秒才发生一次，看不出来）。
+                           // 圈太长还有性能账：beatAmplitudeAt 是线性找拍，圈越大每帧越慢。
 
   /* —— 早搏在时间轴上占多大地方（单位：一个正常心搏的时长）——
    *
@@ -303,7 +346,7 @@ window.Monitor = (function () {
   var PRE_ECTOPIC   = 0.6;   // 早搏【前】那一拍被压短 —— 这样早搏才是"提前"来的
 
   function buildBeats(patient, hr) {
-    var tier  = rhythmTier(patient && patient.severity);
+    var tier  = rhythmTier(patient);          // ★ 含 40% 漂移，判档和画波形走的是同一个函数
     var base  = 60 / hr;                                   // 一个正常心搏的时长（秒）
     var rand  = makeRng(hashId(patient && patient.id) ^ 0x9E3779B9);
 
@@ -314,9 +357,12 @@ window.Monitor = (function () {
      * （自测⑭会把这个换算关系量出来，改这里就要看那条还绿不绿。） */
     var jitter = (tier === 'irregular') ? 0.40 : 0.05;
 
-    var every  = tier === 'regular'   ? 0                 // 一个早搏都不来
-               : tier === 'ectopic'   ? 8 + Math.floor(rand() * 3)   // 每 8~10 拍
-               :                        4 + Math.floor(rand() * 3);  // 每 4~6 拍
+    // 早搏间隔：★ M视觉1d 把"明显不齐"那档从 4~6 拍改成了 8~10 拍。
+    //   原来两档都是"早搏很多"，玩家没有基准去判断"3 个算不算多"；
+    //   而"节奏整不整齐"是不需要基准的 —— 眼睛一看就知道。
+    //   现在第三档的"乱"由底下的常规拍（±30% 抖动）自己承担，不靠数早搏个数。
+    var every  = (tier === 'regular') ? 0
+               :                        8 + Math.floor(rand() * 3);   // 另两档都是每 8~10 拍
     /* ★ 偶发早搏那档取的是 8~10，不是任务书写满的 8~12。
      *   理由和上面 PX_PER_SECOND 那段是同一个算式：一屏约 10.5 拍
      *   （70px/s × 7.9 秒），要是某位患者刚好抽到"每 12 拍一个"，
@@ -734,6 +780,14 @@ window.Monitor = (function () {
   return {
     render: render,
     stop:   stop,
+
+    /* ★ 给自测用的口径（M视觉1d 任务书 §四③）。
+     *   「只看波形档位的观察者 d′ 是多少」这条量化断言，判档必须走【画波形时用的
+     *   那个函数】（含 40% 漂移），不能另写一份"理想档位" —— 否则测的是别的算法，
+     *   不是画面上那条线。所以把真身原样交出去。
+     *   它只读 patient.severity 和 patient.id，不读 hasSignal；对同一份输入永远同输出。
+     *   游戏逻辑一行都不用它。 */
+    rhythmTier: rhythmTier,
   };
 
 })();
