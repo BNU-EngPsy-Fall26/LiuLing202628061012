@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>急诊分诊台 · 教师后台</title>
+
+<!-- 样式：先令牌，再布局。和 index.html 用同一套（契约 2.2） -->
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/main.css">
+
+<style>
+/* ============================================================================
+ * 教师后台自己的版式
+ *
+ * 【为什么样式写在这里而不是 main.css】
+ *   M13 的集成边界只允许新建 admin.html / js/admin.js，styles/main.css 整份只读。
+ *   所以这一页特有的版式只能写在这个 <style> 里 —— 和 js/results.js 当初
+ *   "没有改 CSS 的权限，只能写行内样式"是同一个原因。
+ *   色值一律 var(--c-*)、字体一律 var(--font-*)（契约 2.2 / 2.3）；
+ *   通用的东西（.card / .btn / .cm-table / .lab-tabs / .chart）一律复用 main.css，
+ *   这里只写后台特有的那几块：工具栏、概览卡片、表格壳、登录框。
+ * ==========================================================================*/
+
+[hidden]{ display: none !important; }
+
+/* 后台要摆 4 张图 + 一张 12 列的宽表，main.css 的 880px 太窄 */
+.admin-main{ max-width: 1180px; }
+
+/* 登录页只有一张卡片，收窄一点才像入口而不是内容页 */
+.admin-narrow{ max-width: 520px; }
+
+/* ---------------------------------------------------------------- 登录 */
+
+.login-row{
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.input{
+  flex: 1 1 200px;
+  min-width: 0;                     /* 不加这行，flex 子项在窄屏会被内容撑破 */
+  padding: 10px 14px;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  color: var(--c-text);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+}
+
+.input:focus{
+  outline: none;
+  border-color: var(--c-primary);
+}
+
+.login-row .btn{ flex: 0 0 auto; }
+
+/* 口令错误 / 连不上服务器 —— 红字，不用 alert（任务书 M13 第 1 节） */
+.msg{
+  margin-top: 12px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--c-danger);
+}
+
+.login-hint{
+  margin-top: 14px;
+  font-size: 0.8rem;
+  color: var(--c-text-dim);
+}
+
+/* ---------------------------------------------------------------- 工具栏 */
+
+.toolbar{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+/* 模式过滤用 lab-tabs 那套胶囊按钮（样式在 main.css，这里只把外边距收掉） */
+.toolbar .lab-tabs{ margin: 0; }
+
+.toolbar-right{
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 状态行：正在取数据 / 当前有哪些人 */
+.status{
+  min-height: 1.3em;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  color: var(--c-text-dim);
+}
+
+/* 出错横幅：连不上服务器时用它，而不是把整页清空 */
+.banner{
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-danger);
+  border-radius: var(--radius-sm);
+}
+
+.banner-text{
+  font-size: 0.9rem;
+  color: var(--c-danger);
+  line-height: 1.6;
+}
+
+/* ------------------------------------------------------------ 概览卡片 */
+
+.tiles{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.tile{
+  padding: 16px 18px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+}
+
+.tile-label{
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  color: var(--c-text-dim);
+}
+
+/* 读数一律等宽（契约 2.3）—— 数字不跳，像真仪器 */
+.tile-value{
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.7rem;
+  line-height: 1.25;
+  color: var(--c-text);
+}
+
+/* ------------------------------------------------------------ 图表容器 */
+
+.chart-grid{
+  display: grid;
+  grid-template-columns: 1fr;       /* 窄屏单列 */
+  gap: 16px;
+}
+
+@media (min-width: 1000px){
+  .chart-grid{ grid-template-columns: 1fr 1fr; }
+}
+
+/* .card 自带 margin-bottom，在网格里会变成不等距的缝 */
+.chart-grid .card{ margin-bottom: 0; }
+
+/* 图下面那句话（图 1、图 4 必须有的结论句） */
+.caption{
+  margin-top: 14px;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  color: var(--c-text);
+}
+
+.caption .cap-dim{ color: var(--c-text-dim); }
+
+/* 没数据时占位，别留一块空白的图 */
+.empty{
+  padding: 40px 8px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--c-text-dim);
+}
+
+/* ------------------------------------------------------------ 成绩表格 */
+
+.table-tools{
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.table-tools .input{ flex: 1 1 220px; }
+
+.table-hint{
+  font-size: 0.82rem;
+  color: var(--c-text-dim);
+}
+
+/* 横向滚动壳：12 列表格在窄屏上滚自己，不许把整页撑宽 */
+.table-wrap{ overflow: auto; }
+
+/* 超过 10 人时表头吸顶（任务书 M13 第 5 节）。
+   壳要能纵向滚，position:sticky 才有效果 —— 所以同时给最大高度。 */
+.table-wrap.sticky{ max-height: 70vh; }
+
+.table-wrap.sticky .admin-table thead th{
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--c-surface);
+}
+
+/* 每列表头的排序箭头 */
+.admin-table th.sortable{
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  white-space: nowrap;
+}
+
+.admin-table th.sortable:hover{ color: var(--c-text); }
+
+.admin-table th .arrow{
+  margin-left: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  color: var(--c-primary);
+}
+
+/* 表格里的中文列（姓名、模式）走正文字体；数字列由 tokens.css 的 .cm-table td 管 */
+.admin-table td.txt,
+.admin-table th.txt{
+  font-family: var(--font-sans);
+  text-align: left;
+}
+
+.admin-table td.num{ text-align: right; white-space: nowrap; }
+
+/* 表头两行（"第一轮 / d′ c"）时用 */
+.admin-table th.sub{ font-weight: 400; color: var(--c-text-dim); }
+
+@media (max-width: 700px){
+  .admin-main{ padding: 16px; }
+  .tile-value{ font-size: 1.45rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- ==========================================================================
+     页头：和 index.html 同一套 .app-header，只是标题多了"教师后台"
+     ========================================================================== -->
+<header class="app-header">
+  <h1><span class="brand-dot"></span>急诊分诊台 · 教师后台</h1>
+  <p class="subtitle">全班成绩汇总 · 仅供教师使用</p>
+</header>
+
+<!-- ==========================================================================
+     1. 登录闸门
+       口令 POST 到 /api/admin/login 换 token，token 存 sessionStorage。
+       ★ 口令不许出现在这个文件的任何地方（任务书 M13 硬约束）
+     ========================================================================== -->
+<div id="gate">
+  <main class="admin-main admin-narrow">
+    <form class="card" id="loginForm" novalidate>
+      <div class="card-head">教师登录</div>
+      <div class="login-row">
+        <input class="input" id="loginPassword" type="password" name="password"
+               placeholder="口令" autocomplete="current-password"
+               aria-label="教师口令" required>
+        <button class="btn btn-primary" type="submit" id="loginBtn">进入</button>
+      </div>
+      <!-- 口令错误 / 连不上服务器都显示在这里（红字），不用 alert -->
+      <p class="msg" id="loginMsg" role="alert" hidden></p>
+      <p class="login-hint">仅供教师使用</p>
+    </form>
+  </main>
+</div>
+
+<!-- ==========================================================================
+     主界面：登录成功后才显示
+     ========================================================================== -->
+<main class="admin-main" id="panel" hidden>
+
+  <!-- 2. 顶部工具栏 -->
+  <div class="toolbar">
+    <nav class="lab-tabs" id="modeSeg" aria-label="按试次模式过滤">
+      <button type="button" class="lab-tab active" data-mode="all">全部</button>
+      <button type="button" class="lab-tab" data-mode="standard">标准版</button>
+      <button type="button" class="lab-tab" data-mode="quick">快速版</button>
+    </nav>
+    <div class="toolbar-right">
+      <button type="button" class="btn" id="refreshBtn">刷新数据</button>
+      <button type="button" class="btn btn-ghost" id="logoutBtn">退出登录</button>
+    </div>
+  </div>
+
+  <!-- 状态行 + 出错横幅 -->
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+  <div class="banner" id="errBanner" role="alert" hidden>
+    <span class="banner-text" id="errText"></span>
+    <button type="button" class="btn" id="retryBtn">重试</button>
+  </div>
+
+  <!-- 3. 概览卡片（数字由 js/admin.js 填） -->
+  <div class="tiles">
+    <div class="tile">
+      <div class="tile-label">提交人数</div>
+      <div class="tile-value" id="tileN">—</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">平均 d′</div>
+      <div class="tile-value" id="tileD">—</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">平均 c</div>
+      <div class="tile-value" id="tileC">—</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">平均准确率</div>
+      <div class="tile-value" id="tileAcc">—</div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       4. 四张图
+       ★ 容器都是【可见的】—— 容器藏着的时候 ECharts 只会画出空白（契约 5.6）。
+       图由 js/admin.js 在数据到位后建（Chart.make 内部会销毁重建，
+       所以"刷新数据"可以直接重画，不用自己清理）。
+       ======================================================================== -->
+
+  <!-- 图 1：这一页的核心，整宽 -->
+  <section class="card">
+    <div class="card-head">图 1 · 三轮的平均 d′ 与 c（d′ 左轴 · c 右轴）</div>
+    <div class="chart" id="chartRounds"></div>
+    <p class="caption" id="capRounds"></p>
+  </section>
+
+  <div class="chart-grid">
+
+    <section class="card">
+      <div class="card-head">图 2 · 班级 ROC 散点</div>
+      <div class="chart" id="chartRoc"></div>
+      <p class="caption" id="capRoc"></p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">图 3 · d′ 分布直方图</div>
+      <div class="chart" id="chartHist"></div>
+      <p class="caption" id="capHist"></p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">图 4 · 实测 d′ vs 系统 d′</div>
+      <div class="chart" id="chartSys"></div>
+      <p class="caption" id="capSys"></p>
+    </section>
+
+  </div>
+
+  <!-- 5. 成绩表格 -->
+  <section class="card" style="margin-top:16px">
+    <div class="card-head">成绩表格（点表头排序）</div>
+    <div class="table-tools">
+      <input class="input" id="search" type="search" placeholder="搜学号或姓名"
+             aria-label="按学号或姓名搜索">
+      <span class="table-hint" id="tableHint"></span>
+    </div>
+    <div class="table-wrap" id="tableWrap">
+      <table class="cm-table admin-table" id="table">
+        <thead>
+          <tr id="theadRow">
+            <th class="sortable txt" data-key="studentId">学号</th>
+            <th class="sortable txt" data-key="studentName">姓名</th>
+            <th class="sortable txt" data-key="mode">模式</th>
+            <th class="sortable" data-key="r1d" title="按第一轮 d′ 排序">第一轮 d′ / c</th>
+            <th class="sortable" data-key="r2d" title="按第二轮 d′ 排序">第二轮 d′ / c</th>
+            <th class="sortable" data-key="r3d" title="按第三轮 d′ 排序">第三轮 d′ / c</th>
+            <th class="sortable" data-key="overallDPrime">总 d′</th>
+            <th class="sortable" data-key="overallC">总 c</th>
+            <th class="sortable" data-key="overallAccuracy">准确率</th>
+            <th class="sortable" data-key="finishedAt">提交时间</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<!-- ==========================================================================
+     脚本
+     ★ echarts 必须排在 chart.js 前面：chart.js 是它的薄封装，等着用 window.echarts。
+       （任务书 M13 的清单里这两个写反了，以「顺序别反」那句注释为准。）
+     教师端不玩游戏，所以【不需要】config / store / patient / engine 那些。
+     ========================================================================== -->
+<script src="js/utils.js"></script>
+<script src="js/vendor/echarts.min.js"></script>
+<script src="js/chart.js"></script>
+<script src="js/admin.js"></script>
+
+</body>
+</html>
