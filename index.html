@@ -117,10 +117,25 @@
        ======================================================================== -->
   <div class="screen" id="screen-lab">
     <h2>概念实验室</h2>
-    <p class="placeholder">这一屏最终会有 4 个面板：两个分布、ROC 曲线、代价与最优判据、警觉衰退模拟。</p>
-    <div class="card">
-      <div class="card-head">占位 · 尚未实装</div>
-      <button class="btn btn-primary" onclick="showScreen('admin')">进入教师后台 →</button>
+    <p class="placeholder">拖动滑块，观察 d′、判据 c、先验概率和代价怎么改变混淆矩阵和 ROC 曲线。</p>
+
+    <nav class="lab-tabs" id="labTabs">
+      <button class="lab-tab" data-lab="dist">两个分布</button>
+      <button class="lab-tab" data-lab="roc">ROC 曲线</button>
+      <button class="lab-tab" data-lab="payoff">代价与最优判据</button>
+      <button class="lab-tab" data-lab="vigilance">警觉衰退模拟</button>
+    </nav>
+
+    <!-- 4 个面板容器。
+         内容由各自的模块在【第一次被显示时】填充 —— 见 index.html 底部的 showLab()。
+         不要在页面加载时就渲染进这里（容器还藏着，ECharts 会建成 0×0）。 -->
+    <div class="lab-panel" id="panel-dist"></div>
+    <div class="lab-panel" id="panel-roc"></div>
+    <div class="lab-panel" id="panel-payoff"></div>
+    <div class="lab-panel" id="panel-vigilance"></div>
+
+    <div style="margin-top:28px;text-align:center">
+      <button class="btn btn-ghost" onclick="showScreen('admin')">进入教师后台 →</button>
     </div>
   </div>
 
@@ -157,6 +172,22 @@
 <script src="js/engine.js"></script>
 <script src="js/round.js"></script>
 
+<!-- 成绩提交：POST /api/submit，失败静默、不影响游戏 -->
+<script src="js/submit.js"></script>
+
+<!-- 结果页 -->
+<script src="js/results.js"></script>
+
+<!-- 图表：echarts 是第三方库，必须排在 chart.js 前面（chart.js 要用它） -->
+<script src="js/vendor/echarts.min.js"></script>
+<script src="js/chart.js"></script>
+
+<!-- 概念实验室的 4 个面板：各自往 #panel-xxx 里渲染，互不干扰 -->
+<script src="js/lab/dist.js"></script>
+<script src="js/lab/roc.js"></script>
+<script src="js/lab/payoff.js"></script>
+<script src="js/lab/vigilance.js"></script>
+
 <script>
 /* ============================================================================
  * 屏幕切换
@@ -190,7 +221,92 @@ function showScreen(id) {
   }
 
   window.scrollTo(0, 0);
+
+  // 进概念实验室时，默认打开第一个面板（懒渲染，见下面的 showLab）
+  if (id === 'lab') {
+    // ★ 每次进入都重置渲染标记 —— 学生玩完一局再回来，
+    //   看到的必须是自己【新的】数据（比如 ROC 上那三个工作点）。
+    //   只重置标记、不立刻重画，等 showLab 打开哪个面板哪个才重画。
+    Object.keys(LAB_PANELS).forEach(function (k) {
+      LAB_PANELS[k].rendered = false;
+    });
+    showLab('dist');
+  }
+
+  // 进结果页时重新渲染 —— 每局的 Store.rounds 都不一样，不能只渲染一次
+  if (id === 'results' && window.Results && typeof Results.render === 'function') {
+    Results.render(document.getElementById('screen-results'));
+  }
 }
+
+/* ============================================================================
+ * 概念实验室：面板切换
+ *
+ * ★ 关键机制：面板【第一次被显示时】才渲染，不是页面加载时就全渲染。
+ *
+ *   原因：ECharts 建图时要读容器的宽高。如果容器还藏着（display: none），
+ *   宽高都是 0，图建出来就是 0×0 —— 切过去只看到一片空白。
+ *   所以必须等容器真正可见了，才让对应的模块去建图。
+ *
+ * 【4 个面板模块的接口】（契约 5.6）
+ *   window.LabDist      = { render: function (el) {...} }
+ *   window.LabRoc       = { render: function (el) {...} }
+ *   window.LabPayoff    = { render: function (el) {...} }
+ *   window.LabVigilance = { render: function (el) {...} }
+ *   el 就是下面那 4 个 #panel-xxx 容器，模块自己往里面填内容。
+ * ==========================================================================*/
+
+var LAB_PANELS = {
+  dist:      { el: 'panel-dist',      mod: 'LabDist',      rendered: false },
+  roc:       { el: 'panel-roc',       mod: 'LabRoc',       rendered: false },
+  payoff:    { el: 'panel-payoff',    mod: 'LabPayoff',    rendered: false },
+  vigilance: { el: 'panel-vigilance', mod: 'LabVigilance', rendered: false }
+};
+
+function showLab(name) {
+  var cur = LAB_PANELS[name];
+  if (!cur) return;
+
+  // 1. 面板显隐
+  Object.keys(LAB_PANELS).forEach(function (k) {
+    var el = document.getElementById(LAB_PANELS[k].el);
+    if (el) el.style.display = (k === name) ? 'block' : 'none';
+  });
+
+  // 2. 标签高亮
+  var tabs = document.querySelectorAll('.lab-tab');
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].classList.toggle('active', tabs[i].getAttribute('data-lab') === name);
+  }
+
+  // 3. ★ 第一次显示时才渲染
+  if (cur.rendered) return;
+
+  var box = document.getElementById(cur.el);
+  var mod = window[cur.mod];
+  if (!mod || typeof mod.render !== 'function') {
+    box.innerHTML =
+      '<div class="card"><div class="card-head">模块未加载</div>' +
+      '找不到 <code>window.' + cur.mod + '.render()</code>。' +
+      '请检查 index.html 里 <code>js/lab/</code> 的 script 标签有没有漏。</div>';
+    return;
+  }
+
+  mod.render(box);
+  cur.rendered = true;
+}
+
+// 绑定标签点击
+(function () {
+  var tabs = document.querySelectorAll('.lab-tab');
+  for (var i = 0; i < tabs.length; i++) {
+    (function (btn) {
+      btn.addEventListener('click', function () {
+        showLab(btn.getAttribute('data-lab'));
+      });
+    })(tabs[i]);
+  }
+})();
 
 /* ============================================================================
  * 骨架阶段的假流程（demoRound / enterRound / finishRound / nextRound）
@@ -198,6 +314,33 @@ function showScreen(id) {
  * 轮次过渡屏是 M7（js/round.js）。游戏屏里那两个 onclick 只是兜底，
  * 真正的事件绑定在 engine.js 重建 DOM 时用 addEventListener 挂上。
  * ==========================================================================*/
+
+/* ============================================================================
+ * 开发期调试提示：成绩到底会不会送到教师后台（只有开发者会在控制台看到）
+ *
+ * 不影响任何游戏逻辑，只是把"接线断在哪"当场说清楚。三种情况：
+ *   · submit.js 没加载（路径写错、文件被删）→ 成绩只留在本机
+ *   · 从 file:// 打开 → 提交要跨源，本机调试应该用 http://127.0.0.1:5055/
+ *   · 后端没起来 → 这不是错，submit.js 本来就会静默失败，成绩仍存在 localStorage
+ *
+ * ★ 用 console.info 而不是 console.warn：断网/后端没开是【正常】状态，
+ *   不该在控制台里冒充错误（契约第 9 节要求"无红字"）。
+ * ==========================================================================*/
+
+(function () {
+  if (typeof Submit === 'undefined') {
+    console.warn('[接线] 没找到 Submit —— js/submit.js 没加载，成绩不会提交到教师后台。');
+    return;
+  }
+
+  console.info('[接线] 成绩提交层就位：POST ' + (Submit.apiBase || '') + '/api/submit' +
+               (Submit.apiBase ? '（绝对地址）' : '（同源，相对路径）'));
+
+  if (location.protocol === 'file:') {
+    console.info('[接线] 当前是 file:// 打开的，提交会跨源。本机调试请用 ' +
+                 'http://127.0.0.1:5055/ 打开（同源，不用设 Submit.apiBase）。');
+  }
+})();
 
 // 页面加载：退回登录屏（同时把开发导航条的高亮同步过来）
 showScreen('login');

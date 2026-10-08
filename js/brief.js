@@ -70,6 +70,8 @@
     '  <div class="card-head">你要值班三轮</div>',
     '  <p style="' + paraStyle + '">你要在急诊分诊台值班三轮，每轮 ' +
         STD.trialsPerRound + ' 位患者（快速版 ' + QUICK.trialsPerRound + ' 位）。</p>',
+    '  <p style="' + paraStyle + '">' +
+        '<strong>正式开始前有 12 位练习患者，不计分</strong>——先熟悉一下怎么看生命体征。</p>',
     '  <p style="' + paraStyle + '">三轮里，你要判断的难度是一样的——</p>',
     '  <p style="' + paraStyle + '">但每一轮“判错的代价”会变。</p>',
     '  <p style="margin-bottom:0;">请仔细读每轮开始前的提示。</p>',
@@ -94,8 +96,10 @@
     '</div>',
 
     // —— 出口 ——
+    // ★ 按钮说的是"先练 12 位"，和上面那句小字"正式开始前有 12 位练习患者，
+    //   不计分"对得上（任务书第四节：以前写"开始第一轮"，点下去却进练习轮，是句假话）
     '<div class="btn-row">',
-    '  <button class="btn btn-primary" id="briefStart">开始第一轮 →</button>',
+    '  <button class="btn btn-primary" id="briefStart">开始（先练 12 位）→</button>',
     '</div>',
 
     '<p style="margin-top:14px;font-size:0.8rem;color:var(--c-text-dim);">' +
@@ -129,7 +133,8 @@
 
   paintModes();   // 进屏时先按默认选中态上一次色
 
-  // 「开始第一轮」：没手动选过就用标准版兜底，然后交给引擎开局（M6）
+  // 「开始（先练 12 位）」：没手动选过就用标准版兜底，然后交给引擎开局（M6）。
+  // 点下去进的是练习轮 —— 引擎那边跑完 12 位会停在停顿屏，玩家再点才进第一轮
   document.getElementById('briefStart').addEventListener('click', function () {
     if (Store.mode === null || Store.mode === undefined) {
       Store.setMode('standard');

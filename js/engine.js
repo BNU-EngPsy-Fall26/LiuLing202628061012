@@ -6,6 +6,10 @@
  *     生成试次序列 → 出一位患者 → 等玩家点 → 算结果 → 反馈 1.2 秒 → 下一位
  *     一轮跑完 → 存进 Store → 交给过渡屏（M7）→ 下一轮 → 三轮跑完进结果页
  *
+ *   ★ M6-b 加了练习轮（契约 3.7）：说明页 → 练习轮 12 位 → 停顿屏 → 第一轮……
+ *     练习轮和正式轮走的是【同一个】runRound()，只差 isPractice 这一个开关
+ *     （不计分 + 顶部那句「练习 · 不计分」）。别把试次循环复制成两份。
+ *
  * 【三条它必须守住的东西】
  *
  *   1. ★ 判断之前不许读 patient.hasSignal（契约第 8 节铁律第 3 条）
@@ -23,13 +27,22 @@
  *      契约 5.3 的规矩是"跨模块的数据放 Store，只有一个模块自己用的放局部变量"。
  *      轮次结果是要给别人看的，那些都走 Store.pushRound()。
  *
+ *   4. ★ 练习轮一笔都不许进 Store.rounds（契约 3.7）
+ *      那 12 位是为了让玩家把标准校准过来用的，它们本身不是数据。
+ *      轮次结果唯一的写入口就是 finishRound()，那里第一句就是
+ *      "isPractice 就直接 return" —— M8 的结果页永远只会看到 3 条。
+ *
  * 【依赖】
  *   Store        —— student / mode / rounds（契约 5.3）
  *   Utils        —— shuffle / rand01（契约 5.4：不许自己实现）
  *   PatientGen   —— generate()（契约 5.1 / M4）
  *   PatientCard  —— render()（契约 5.1 / M5）
  *   Scoring      —— outcomeOf / summarizeRound（契约 5.2 / M6-a）
+ *                   + summarizeSession()，只在第 3 轮结束时用一次
+ *   Submit       —— save() / send()（契约 6.1 / M14），只在第 3 轮结束时用。
+ *                   ★ 是【可选】依赖：没加载也要能玩完（typeof 判断见 finishRound）
  *   RoundScreen  —— show()（M7），只在第 1、2 轮结束时用到
+ *                   （练习轮跑完的停顿屏不走它，见 showPracticeEnd()）
  *   window.ROUNDS / window.D_PRIME / window.TRIAL_MODES —— js/config.js
  * ==========================================================================*/
 
@@ -42,6 +55,26 @@ window.Engine = (function () {
 
   var TOTAL_ROUNDS = 3;      // 契约第 1 节：一场实验恒为三轮
   var FEEDBACK_MS  = 1200;   // 契约 3.1：反馈停留 1.2 秒
+
+  /* 练习轮参数（契约 3.7）
+   *
+   *   12 位 = 6 信号 + 6 噪音，约 90 秒。★ 永远不随试次模式变 ——
+   *   选了快速版也照样跑 12 位（它是"校准标准"用的，不是数据）。
+   *
+   *   nSignal 必须等于 nNoise：练习轮也得守住 P(S) = 0.5（契约 3.4.1 硬约束 1）。
+   *   否则玩家在练习轮里练出来的标准，放到正式轮上是对不上的。
+   *
+   *   ⚠️ 按"config.js 是唯一真源"的规矩，这几个数字本该住在 js/config.js，
+   *      但 config.js 里没有练习轮这一项，而本次任务只允许改 engine.js /
+   *      brief.js —— 所以先落在离用它的地方最近的位置。哪天要挪，整块搬。
+   */
+  var PRACTICE = {
+    roundIndex:     0,    // 0 表示练习轮（正式轮是 1 / 2 / 3）
+    isPractice:     true,
+    trialsPerRound: 12,
+    nSignal:        6,
+    nNoise:         6,
+  };
 
   var HINT_WAIT    = '看清主诉和生命体征，再点下面的按钮。';
   var HINT_FEEDBACK = '已记录 —— 正在送入下一位……';
@@ -56,10 +89,11 @@ window.Engine = (function () {
    *   出问题时把种子报给我就能一模一样地复现那一批患者。
    *
    *   种子由 Engine.start() 定一次（Engine.seed() 可以取到），
-   *   每一轮的种子从它推出来，所以三轮之间不会撞成同一批患者。
+   *   每一轮的种子从它推出来，所以各轮之间不会撞成同一批患者
+   *   （练习轮的轮次号是 0，也在里面）。
    *
    *   ⚠️ 这是"复现用"的 rng，不是"公平性"用的 —— 公平性由
-   *      nSignal / nNoise 的精确配比保证（见 startRound）。
+   *      nSignal / nNoise 的精确配比保证（见 runRound）。
    * ------------------------------------------------------------------------ */
 
   function makeRng(seed) {
@@ -78,14 +112,19 @@ window.Engine = (function () {
   /* --------------------------------------------------------------------------
    * 2. 本模块的私有状态（闭包变量，不挂 window）
    *
-   *   round       当前第几轮（1~3）
+   *   round       当前是第几"轮"：0 = 练习轮，1~3 = 正式轮
+   *   isPractice  true = 练习轮。★ 全文件只有两处看它：
+   *               setHeader() 决定顶部标不标「练习 · 不计分」，
+   *               finishRound() 决定要不要写 Store。别让它在别处长出来
+   *   trialsPerRound 本轮一共几位（练习轮 12，正式轮按模式 30 / 16）
    *   sequence    本轮的真值序列：true = 信号患者，false = 噪音患者
    *   index       走到本轮第几位（0 起）
    *   patient     当前这一位患者（含 hasSignal / severity，绝不出这个闭包）
    *   startedAt   当前这张卡片出现的时间戳（算反应时用）
    *   awaiting    true = 正在等玩家点。它是"按钮能不能点"的唯一判据，
    *               也是防止连点、防止 1.2 秒内重复记录的那道闸
-   *   trials      本轮已经记录下来的 Trial（契约 4.2）
+   *   trials      本轮已经记录下来的 Trial（契约 4.2）。练习轮的这里也有 12 笔，
+   *               但它们在 finishRound() 里被直接丢掉 —— 不进 Store
    *   patientRng  出患者 + 洗牌序列用
    *   cardRng     反馈文案用（和上面那个分开，免得抽一句话就打乱患者序列）
    * ------------------------------------------------------------------------ */
@@ -94,6 +133,8 @@ window.Engine = (function () {
     sessionSeed: 0,
     sessionStartedAt: null,
     round: 1,
+    isPractice: false,
+    trialsPerRound: 0,
     sequence: [],
     index: 0,
     patient: null,
@@ -190,19 +231,32 @@ window.Engine = (function () {
     return (n < 10 ? '0' : '') + n;
   }
 
-  // 模式没选过就按标准版兜底（brief.js 点「开始第一轮」时已经兜过一次，
+  // 模式没选过就按标准版兜底（brief.js 那颗开始按钮已经兜过一次，
   // 这里是防"从开发导航直接蹦进来"的保险，宁可跑标准版也不要卡在半路）
   function modeOf() {
     return Store.currentMode() || window.TRIAL_MODES.standard;
   }
 
-  function setHeader(roundNo) {
-    var spec = (window.ROUNDS && window.ROUNDS[roundNo - 1]) || {};
-    el.title.textContent = '第 ' + roundNo + ' 轮 · ' + (spec.name || '');
+  // 顶部标题：正式轮是「第 N 轮 · 轮次名」，练习轮是「练习 · 不计分」
+  //
+  // ★ 练习轮那行用 --c-watch（黄）而不是标题默认色：要一眼看出"这段不算数"，
+  //   但它只是个提示，不是警报，所以别用红（契约 3.7 的"显眼但别太抢"）。
+  //   颜色每次开局都写一遍（正式轮那支把 style.color 清空），
+  //   免得练习轮染过的颜色被第一轮的标题继承过去。
+  function setHeader(roundIndex, isPractice) {
+    if (isPractice) {
+      el.title.textContent = '练习 · 不计分';
+      el.title.style.color = 'var(--c-watch)';
+      return;
+    }
+
+    var spec = (window.ROUNDS && window.ROUNDS[roundIndex - 1]) || {};
+    el.title.textContent = '第 ' + roundIndex + ' 轮 · ' + (spec.name || '');
+    el.title.style.color = '';
   }
 
   function setProgress() {
-    var total = state.sequence.length || modeOf().trialsPerRound;
+    var total = state.trialsPerRound || state.sequence.length;
     var pos   = Math.min(state.index + 1, total);
     el.progress.textContent = '患者 ' + pad2(pos) + ' / ' + total;
   }
@@ -229,41 +283,77 @@ window.Engine = (function () {
   }
 
   /* --------------------------------------------------------------------------
-   * 5. 开始一轮
+   * 5. 开始一轮 ★ 练习轮和正式轮共用这一个函数
+   *
+   *   opts.roundIndex       0 = 练习轮，1 / 2 / 3 = 正式轮
+   *   opts.isPractice       true → 不计分、顶部标「练习 · 不计分」
+   *   opts.trialsPerRound   ┐
+   *   opts.nSignal          ├ 不传就按 Store.currentMode() 取（正式轮走这条）
+   *   opts.nNoise           ┘
+   *
+   *   ★ 为什么不给练习轮复制一份试次循环出来：
+   *     复制出来的第二份，以后改反馈逻辑（比如反馈里要不要显示生命体征、
+   *     停留几毫秒）就得改两处。漏掉一处时，练习轮和正式轮会【悄悄】不一致 ——
+   *     程序一个错都不报，只是玩家在练习里校准到的标准对不上正式轮，
+   *     而练习轮存在的全部意义正是"校准到和正式轮一致"。
+   *     抽成一个函数之后，"练习"和"正式"的差别只剩 isPractice 这一个开关。
    * ------------------------------------------------------------------------ */
 
-  function startRound(roundNo) {
+  function runRound(opts) {
+    opts = opts || {};
+
     var mode = modeOf();
 
-    state.round  = roundNo;
-    state.trials = [];
-    state.index  = 0;
-    state.patient = null;
+    // 传了就用传的，没传就退回模式里的值。0 是个合法数字（不会走 fallback）
+    function pick(v, fallback) {
+      return (typeof v === 'number' && isFinite(v)) ? v : fallback;
+    }
+
+    var nSignal = pick(opts.nSignal, mode.nSignal);
+    var nNoise  = pick(opts.nNoise,  mode.nNoise);
+
+    state.round          = opts.roundIndex;
+    state.isPractice     = !!opts.isPractice;
+    state.trialsPerRound = pick(opts.trialsPerRound, mode.trialsPerRound);
+    state.trials   = [];
+    state.index    = 0;
+    state.patient  = null;
     state.awaiting = false;
     state.startedAt = 0;
 
-    // 每轮一套自己的 rng：种子从场次种子推出来，三轮互不相同、
-    // 但同一场实验重放时能一模一样地复现
-    state.patientRng = makeRng((state.sessionSeed + roundNo * 0x9E3779B1) >>> 0);
-    state.cardRng    = makeRng((state.sessionSeed ^ roundNo * 0x85EBCA6B) >>> 0);
+    // 每轮一套自己的 rng：种子从场次种子推出来，各轮互不相同、
+    // 但同一场实验重放时能一模一样地复现那一批患者。
+    // 练习轮的 roundIndex 是 0，用的种子和三场正式轮也不会撞。
+    state.patientRng = makeRng((state.sessionSeed + state.round * 0x9E3779B1) >>> 0);
+    state.cardRng    = makeRng((state.sessionSeed ^ state.round * 0x85EBCA6B) >>> 0);
 
     // ★ 序列：正好 nSignal 个 true + nNoise 个 false，再洗牌
     //   不是"每位 50% 随机" —— 理由是契约 3.4.1 的硬约束 1：
     //   随机抛硬币会让每轮实际信号数在 15 上下浮动，P(S) 就不再是 0.5，
-    //   三轮的 c 也没法放在一起比了
+    //   三轮的 c 也没法放在一起比了。练习轮同理（6 / 6）。
     var pool = [];
     var i;
-    for (i = 0; i < mode.nSignal; i++) pool.push(true);
-    for (i = 0; i < mode.nNoise;  i++) pool.push(false);
+    for (i = 0; i < nSignal; i++) pool.push(true);
+    for (i = 0; i < nNoise;  i++) pool.push(false);
     state.sequence = Utils.shuffle(pool, state.patientRng);
 
-    setHeader(roundNo);
+    setHeader(state.round, state.isPractice);
     setProgress();
     setCounts();
     setButtons(false);
 
     showScreen('game');
     nextTrial();
+  }
+
+  // 正式轮：轮次号从 1 数起，其余参数一律从 Store.currentMode() 读
+  function startRound(roundNo) {
+    runRound({ roundIndex: roundNo, isPractice: false });
+  }
+
+  // 练习轮（契约 3.7）：永远 12 位，选了快速版也还是 12 位
+  function startPractice() {
+    runRound(PRACTICE);
   }
 
   /* --------------------------------------------------------------------------
@@ -350,6 +440,17 @@ window.Engine = (function () {
     state.patient  = null;
     setButtons(false);
 
+    /* ★ 练习轮到这里就结束：不总结、不写 Store、不进结果页（契约 3.7）
+     *
+     *   state.trials 里那 12 笔（含玩家在练习轮里的命中率）直接丢掉 ——
+     *   练习轮存在的意义是让玩家把标准校准到和正式轮一致，
+     *   它本身不是数据，写进 Store 会污染 result 页的"三轮对比"。
+     *   这是全文件唯一一处把试次丢掉的 return，别在别处再开一个口子。 */
+    if (state.isPractice) {
+      showPracticeEnd();
+      return;
+    }
+
     var result = Scoring.summarizeRound(state.round, state.trials, modeOf());
 
     Store.pushRound(result);   // ★ 不自己在别处存一份，rounds 的唯一真源是 Store
@@ -364,12 +465,76 @@ window.Engine = (function () {
       return;
     }
 
-    // 第三轮跑完 → 结果页（M8 的地盘，这里先直接跳）
-    //
-    // 留给 M8 的接口，别自己另发明一套：
-    //   var session = Scoring.summarizeSession(
-    //       Store.student, Store.mode, Store.rounds, Engine.sessionStartedAt());
+    /* ★ 三轮跑完 = 全场结束，把 Session 交出去（契约 6.1）
+     *
+     *   【为什么"一局只提交一次"是结构保证的，不是靠计数器】
+     *     提交只写在这一个分支里 —— 它是通向 showScreen('results') 的唯一一条路。
+     *     第 1、2 轮在上面那个 if 里就 return 了，练习轮更早就 return 了，
+     *     都到不了这几行。finishRound() 本身对一轮也只可能被调用一次
+     *     （nextTrial 走完序列才调它，调完 awaiting 是 false，再也进不来）。
+     *     所以这里不需要"提交过了吗"这种标志位 —— 那种标志位才是会漏的地方。
+     *
+     *   【startedAt 一个参数都不能少】不传的话教师后台看到的"用时"恒为 0
+     *     （契约 5.2）。用 state.sessionStartedAt，和结果页那边取的是同一个值。
+     *
+     *   【send() 不 await、不 .then、不 .catch】它内部已经保证绝不 reject、
+     *     不抛错、不弹窗（submit.js 头部注释）。再加一层反而多一条失败路径。
+     *
+     *   【typeof 这个判断要留着】submit.js 加载失败（路径写错 / 网络）
+     *     不能把游戏带崩 —— 没有它，这里会 ReferenceError，玩家连结果页都看不到。
+     */
+    if (typeof Submit !== 'undefined') {
+      var session = Scoring.summarizeSession(
+        Store.student, Store.mode, Store.rounds, state.sessionStartedAt);
+
+      Submit.save(session);   // 先落 localStorage：后端没通时成绩也不丢
+      Submit.send(session);   // 发出去就不管了
+    }
+
+    // 第三轮跑完 → 结果页（M8）
     showScreen('results');
+  }
+
+  /* --------------------------------------------------------------------------
+   * 8.1 练习结束的停顿屏（契约 3.7）
+   *
+   *   ★ 练习跑完【不能直接进第一轮】—— 中间必须有这一停，
+   *     玩家才知道"从这里开始算数了"。少这一屏，练习轮就白做了。
+   *
+   *   借用 #screen-round 这一屏来显示（正式轮的过渡屏也用这屏）。
+   *   练习结束之后它会被 RoundScreen.show() 整个重建掉，两边不冲突 ——
+   *   本函数只往里写死文案，不注册任何会被 RoundScreen 撞到的状态。
+   * ------------------------------------------------------------------------ */
+
+  function showPracticeEnd() {
+    var host = document.getElementById('screen-round');
+
+    // 没这一屏也别把流程卡死在这里：宁可没有停顿，也要能开第一轮
+    if (!host) {
+      startRound(1);
+      return;
+    }
+
+    host.innerHTML = [
+      '<h2>练习结束</h2>',
+      '<div class="card" style="padding:28px 24px;">',
+      '  <p style="font-size:1.12rem;font-weight:600;line-height:1.5;' +
+          'color:var(--c-text);margin-bottom:20px;">' +
+          '接下来正式计分，规则和刚才一样。</p>',
+      '  <div class="btn-row" style="margin-top:22px;">',
+      '    <button class="btn btn-primary" id="practiceStart">开始第一轮 →</button>',
+      '  </div>',
+      '</div>',
+    ].join('\n');
+
+    var btn = document.getElementById('practiceStart');
+
+    btn.addEventListener('click', function () {
+      btn.disabled = true;      // 防连点：开第一轮时本来也会换屏
+      startRound(1);
+    });
+
+    showScreen('round');
   }
 
   /* --------------------------------------------------------------------------
@@ -380,9 +545,9 @@ window.Engine = (function () {
 
   return {
 
-    // 从说明页点「开始第一轮」时调用（brief.js 第 133 行的回调）
+    // 从说明页那颗「开始（先练 12 位）」调用（brief.js 的 briefStart 回调）
     start: function () {
-      // 已经跑过又回来点「开始第一轮」，说明是重开一局。
+      // 已经跑过又回来点这颗按钮，说明是重开一局。
       // 上一局的 rounds 必须清掉（否则第二轮实验会带着第一轮的数据，
       // pushRound 还会在第 4 个上抛错），但 student / mode 刚在登录页和
       // 说明页填好，不能跟着清 —— 所以调 clearRounds() 而不是 reset()（契约 5.3）。
@@ -393,7 +558,10 @@ window.Engine = (function () {
                            Math.floor(Utils.rand01() * 0x100000000)) >>> 0;
       state.sessionStartedAt = new Date();
 
-      startRound(1);
+      // ★ 契约 3.7：正式三轮之前必做 12 位不计分的练习。
+      //   练习跑完由 showPracticeEnd() 那屏的按钮回调 startRound(1)，
+      //   而不是在这里接着往下走 —— 中间那一停是故意留的。
+      startPractice();
     },
 
     // 玩家点「立即紧急处理」/「可以等待」时调用
