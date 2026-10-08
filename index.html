@@ -8,6 +8,35 @@
 <!-- 样式：先令牌，再布局 -->
 <link rel="stylesheet" href="styles/tokens.css">
 <link rel="stylesheet" href="styles/main.css">
+
+<style>
+/* ============================================================================
+ * 开发导航条的门控（契约第 9 节第 1 条：学生一打开不许看见「7 后台」）
+ *
+ * ★ 用 CSS 默认藏起来，只有 <html> 上带 .dev-mode 时才显示。
+ *   道理：CSS 是渲染前就生效的 ——「学生看到后台按钮」这件事在样式表
+ *   生效的那一刻就不可能发生。换成 JS 回来改 style，页面会先按
+ *   display:flex 画一帧再藏起来，那一帧学生是看得见的（闪一下）。
+ *
+ * ★ 为什么不写进 styles/main.css：本任务书的集成边界只允许改
+ *   js/patient.js / index.html / admin.html / js/admin.js / docs/部署步骤.md，
+ *   styles/* 整份只读。这一块排在两个 <link> 之后，选择器优先级和
+ *   main.css 里那条 .dev-nav 相同（都是 0,1,0）—— 同优先级后写的赢，
+ *   所以级联结果和写在 main.css 里完全一样。
+ * ==========================================================================*/
+.dev-nav{ display: none; }
+html.dev-mode .dev-nav{ display: flex; }
+</style>
+
+<script>
+/* 门控的开关：网址带 ?dev=1（判据是"有 dev 这个键"，值写什么都行）才显示。
+ * ★ 这段必须放在 <head> 里、<body> 之前 —— 门控要在首次渲染之前生效。
+ *   CSS 已经默认藏住了（所以最坏情况也只是导航条晚一点出现，不会闪出来），
+ *   这里再在渲染前补上 .dev-mode，带参数的开发者一进来就是完整的。 */
+if (new URLSearchParams(location.search).has('dev')) {
+  document.documentElement.className += ' dev-mode';
+}
+</script>
 </head>
 <body>
 
@@ -21,6 +50,7 @@
 
 <!-- ==========================================================================
      开发导航条 —— 骨架阶段的临时工具，验收完成后可删
+     ★ 整条默认藏起来，只有网址带 ?dev=1 时才显示（见 <head> 里的门控）
      当前所在的屏会高亮（由 showScreen 同步）
      ========================================================================== -->
 <nav class="dev-nav">
@@ -31,7 +61,9 @@
   <button data-screen="round"   onclick="showScreen('round')">4 轮次</button>
   <button data-screen="results" onclick="showScreen('results')">5 结果</button>
   <button data-screen="lab"     onclick="showScreen('lab')">6 实验室</button>
-  <button data-screen="admin"   onclick="showScreen('admin')">7 后台</button>
+  <!-- 后台是独立页面，不是本页的一屏 —— 所以没有 data-screen 可高亮，
+       直接跳过去（showScreen('admin') 已经随占位屏一起删掉了） -->
+  <button onclick="location.href='admin.html'">7 后台</button>
 </nav>
 
 <main>
@@ -141,20 +173,12 @@
     <div class="lab-panel" id="panel-payoff"></div>
     <div class="lab-panel" id="panel-vigilance"></div>
 
+    <!-- ★ 教师后台是【独立页面】admin.html（契约第 1 节 / 第 9 节第 2 条），
+         不是本页的一屏 —— 这里必须整页跳转。
+         原来写的是 showScreen('admin')，跳到的是本页那个写着
+         「占位 · 尚未实装」的 #screen-admin，任何人点进来都以为后台没做。 -->
     <div style="margin-top:28px;text-align:center">
-      <button class="btn btn-ghost" onclick="showScreen('admin')">进入教师后台 →</button>
-    </div>
-  </div>
-
-  <!-- ========================================================================
-       7. 教师后台
-       ======================================================================== -->
-  <div class="screen" id="screen-admin">
-    <h2>教师后台</h2>
-    <p class="placeholder">这一屏最终会有：全班成绩汇总、按试次模式分组的统计图。</p>
-    <div class="card">
-      <div class="card-head">占位 · 尚未实装</div>
-      <button class="btn btn-ghost" onclick="showScreen('login')">回到登录 →</button>
+      <button class="btn btn-ghost" onclick="location.href='admin.html'">进入教师后台 →</button>
     </div>
   </div>
 

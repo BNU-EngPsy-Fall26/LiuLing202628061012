@@ -640,6 +640,14 @@ window.Admin = (function () {
     dom.tileD.textContent = '—';
     dom.tileC.textContent = '—';
     dom.tileAcc.textContent = '—';
+
+    /* 没数据可显示时也没有东西可导出：
+       进来还没登录、后端连不上（一次都没取到）、刚点了退出登录，都走这里。
+       表格那边由 renderTable 每次重算，这里补上按钮的置灰状态。 */
+    if (dom.exportBtn) {
+      dom.exportBtn.disabled = true;
+      dom.exportBtn.title = '后台还没有成绩';
+    }
   }
 
   /* ---------------------------------------------------------------- 概览卡片 */
@@ -1336,6 +1344,15 @@ window.Admin = (function () {
     // 超过 10 人表头吸顶（任务书 M13 第 5 节）
     dom.tableWrap.classList.toggle('sticky', rows.length > 10);
 
+    /* ★ 导出按钮跟着表格的可导出行数走：一行都没有就置灰。
+       判据用 rows.length（visibleRows 的结果）而不是 state.rows.length ——
+       老师搜了"张三"、结果没这个人，此时导出也应当是空的。
+       另外补一句 title，鼠标停上去就知道为什么点不动。 */
+    dom.exportBtn.disabled = !rows.length;
+    dom.exportBtn.title = rows.length
+      ? '把当前表格里的 ' + rows.length + ' 行导出成 CSV（Excel 可直接打开）'
+      : (state.rows.length ? '当前筛选下没有记录' : '后台还没有成绩');
+
     dom.tableHint.textContent = state.rows.length
       ? '显示 ' + rows.length + ' / ' + state.rows.length + ' 人'
       : '';
@@ -1377,12 +1394,141 @@ window.Admin = (function () {
   }
 
   /* ==========================================================================
+   * 8.1 导出全班 CSV（交付前清理 · 第 5 件事）
+   *
+   * 【为什么要有这个按钮】在这之前，老师的备份路线是"把表格整张选中、
+   *   粘进 Excel"—— 能用，但很笨，而且一旦平台把容器重建（SQLite 没挂
+   *   持久盘的话），数据就没了。一个导出按钮是【不依赖运维】的退路。
+   *
+   * 【导出哪些行】visibleRows() —— 就是表格里此刻显示的那些：
+   *   模式筛选（标准版 / 快速版）和搜索框都算数，排序也照着来。
+   *   老师筛了"快速版"却导出一个混着两种模式的文件，那才是坑。
+   *
+   * 【CSV 的几条硬要求】（照抄 js/submit.js 的 exportCsv，它已经被学生端验过）
+   *   · 开头加 UTF-8 BOM —— 不加的话 Excel 打开中文姓名/学号是乱码。
+   *     这是中文 CSV 唯一必踩的坑，别删。
+   *   · 换行用 \r\n（RFC 4180）。
+   *   · 含逗号/引号/换行格的单元格整体加引号、内部引号翻倍 ——
+   *     学生姓名里出现逗号（"张,三"）不是不可能，逃逸一次的成本很低。
+   *   · ★ 下载前必须 document.body.appendChild(a)：不挂进 DOM 的 <a>
+   *     在部分浏览器上点了什么都不会发生。
+   *
+   * 【数值的格式】和表格一致，但走的是"给 Excel 用的写法"：
+   *   表格里 c 写成 +0.30 / −0.22，CSV 里就是 0.3 / -0.22
+   *   （留着正号 Excel 会当成文本，求和/排序都不认）；
+   *   准确率折算成百分数（表头带 %，老师不用自己乘 100）。
+   *   缺数据的格子写空串 —— 表格上显示的是"—"，但"—"进 Excel 是一列文本，
+   *   反而挡住求和；留空更干净。
+   *
+   * ★ 这里没有复用 js/submit.js 的 buildCsv：那一份是"一个人一场实验"的
+   *   一张表（从 Session 对象取数），这一份是"全班一人一行"（从后端 rows 取数），
+   *   列都不一样。而且 admin.html 不加载 submit.js（教师端不玩游戏），
+   *   引过来的话为了一个字符串函数要带进整个提交层。
+   * ======================================================================== */
+
+  // 单元格逃逸：含逗号 / 引号 / 换行就整体加引号，内部引号翻倍（RFC 4180）
+  function csvCell(v) {
+    var s = (v === null || v === undefined) ? '' : String(v);
+    if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  // 数值列：不是有限数就留空（缺数据的行不瞎补 0，理由同 normRow）
+  function csvNum(v, digits) {
+    if (!isNum(v)) return '';
+    var p = Math.pow(10, digits === undefined ? 2 : digits);
+    var x = Math.round(v * p) / p;
+    return String(x === 0 ? 0 : x);     // 顺手把 −0 归一成 0
+  }
+
+  function csvPct(v) {
+    if (!isNum(v)) return '';
+    return csvNum(v * 100, 1);
+  }
+
+  // 表头 —— 列与表格一一对应（任务书 ⑤ 给定的那 16 列，顺序不许换）
+  var CSV_HEADER = [
+    '学号', '姓名', '模式',
+    '第一轮d′', '第一轮c', '第一轮准确率%',
+    '第二轮d′', '第二轮c', '第二轮准确率%',
+    '第三轮d′', '第三轮c', '第三轮准确率%',
+    '总d′', '总c', '总准确率%',
+    '提交时间'
+  ];
+
+  function buildClassCsv(rows) {
+    var lines = [CSV_HEADER.map(csvCell).join(',')];
+
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var cells = [
+        r.studentId, r.studentName, MODE_LABEL[r.mode] || r.mode,
+        csvNum(r.rounds[0].dPrime), csvNum(r.rounds[0].c, 2), csvPct(r.rounds[0].accuracy),
+        csvNum(r.rounds[1].dPrime), csvNum(r.rounds[1].c, 2), csvPct(r.rounds[1].accuracy),
+        csvNum(r.rounds[2].dPrime), csvNum(r.rounds[2].c, 2), csvPct(r.rounds[2].accuracy),
+        csvNum(r.overallDPrime), csvNum(r.overallC, 2), csvPct(r.overallAccuracy),
+        // 表格里显示的是"月-日 时:分"（fmtTime），CSV 里就给同一个读法，
+        // 免得老师对着文件还要自己换算一遍时区。
+        isNum(r.finishedAtMs) ? fmtTime(r.finishedAtMs) : r.finishedAt
+      ];
+      lines.push(cells.map(csvCell).join(','));
+    }
+
+    // BOM 在最前面，\r\n 是 CSV 规范
+    return '﻿' + lines.join('\r\n') + '\r\n';
+  }
+
+  function csvFileName() {
+    var d = new Date();
+    return 'sdt-全班-' + d.getFullYear() + '-' +
+           pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + '.csv';
+  }
+
+  function downloadText(name, text) {
+    // 没有文件 API 的环境（jsdom、老浏览器）→ 只把字符串交出去，不抛错
+    if (typeof Blob === 'undefined' || typeof URL === 'undefined' ||
+        typeof URL.createObjectURL !== 'function') {
+      return text;
+    }
+    var blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+    var href = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = href;
+    a.download = name;
+    a.style.display = 'none';
+    document.body.appendChild(a);       // ★ 不挂进 DOM，某些浏览器点了不下载
+    a.click();
+    document.body.removeChild(a);
+    // 立刻 revoke 在部分浏览器里会让下载中断，挪到下一个事件循环
+    setTimeout(function () { URL.revokeObjectURL(href); }, 0);
+    return text;
+  }
+
+  function onExportCsv() {
+    var rows = visibleRows();
+
+    if (!rows.length) {
+      // 按钮平时是置灰的（renderTable 里同步），这里是兜底：
+      // 空表也绝不下发一个只有表头的文件 —— 老师会以为"全班都没交"。
+      setStatus(state.rows.length
+        ? '当前筛选下没有记录，没有可导出的内容。'
+        : '后台还没有成绩，没有可导出的内容。');
+      return;
+    }
+
+    downloadText(csvFileName(), buildClassCsv(rows));
+    setStatus('已导出 ' + rows.length + ' 人的成绩（' +
+              (MODE_LABEL[state.mode] || state.mode) + '）。');
+  }
+
+  /* ==========================================================================
    * 9. 事件绑定与初始化
    * ======================================================================== */
 
   function bindEvents() {
     dom.loginForm.addEventListener('submit', onLoginSubmit);
     dom.logoutBtn.addEventListener('click', onLogout);
+    dom.exportBtn.addEventListener('click', onExportCsv);
     dom.refreshBtn.addEventListener('click', function () { load(); });
     dom.retryBtn.addEventListener('click', function () { load(); });
 
@@ -1423,6 +1569,7 @@ window.Admin = (function () {
     dom.loginBtn = $('loginBtn');
     dom.loginMsg = $('loginMsg');
     dom.modeSeg = $('modeSeg');
+    dom.exportBtn = $('exportBtn');
     dom.refreshBtn = $('refreshBtn');
     dom.logoutBtn = $('logoutBtn');
     dom.status = $('status');

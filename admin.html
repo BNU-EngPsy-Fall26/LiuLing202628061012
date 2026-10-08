@@ -294,6 +294,10 @@
       <button type="button" class="lab-tab" data-mode="quick">快速版</button>
     </nav>
     <div class="toolbar-right">
+      <!-- ★ 导出的是【当前筛选后】的表格内容（和表格里看到的一致）。
+           一行数据都没有时置灰（js/admin.js 里按 visibleRows() 同步）——
+           不下载一个只有表头的空文件。 -->
+      <button type="button" class="btn" id="exportBtn">导出全班 CSV</button>
       <button type="button" class="btn" id="refreshBtn">刷新数据</button>
       <button type="button" class="btn btn-ghost" id="logoutBtn">退出登录</button>
     </div>
