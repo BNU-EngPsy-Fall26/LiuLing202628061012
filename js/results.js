@@ -5,7 +5,7 @@
  *   玩家刚玩完三轮（同一批难度、三种代价），这一屏要让他【自己看出来】：
  *     我的分辨能力 d′ 三轮几乎没变，变的只是我的标准 c。
  *   —— 但这句话只有在数据里 d′ 真的没怎么变时才许说：
- *      摆幅一大就换成"练习效应"那套解释（契约 3.8，见第 4 节）。
+ *      摆幅一大就换成按方向挑的解释（练习效应 / 疲劳 / 不稳定，见第 4 节）。
  *   所以整页的重心是一张表 + 表下面那三条注释，不是大段解释文字。
  *   文字只负责把玩家眼睛已经看到的东西命名一次（"这就是信号检测论"）。
  *
@@ -353,10 +353,15 @@ window.Results = (function () {
    *
    *   两套话，按 d′ 的实际摆幅选（契约 3.8）：
    *     · d′ 摆幅 ≤ 0.70 —— d′ 真的没怎么变，照旧说"没变"
-   *     · d′ 摆幅 >  0.70 —— 一个字都不许再说"没变"，
-   *                          整段换成【练习效应】那套解释
-   *   ★ 两套里都有 c 的那段 —— 它是另一个维度，d′ 变了不影响它成立，
-   *     绝对不能跟着"没变"那套一起丢掉。
+   *     · d′ 摆幅 >  0.70 —— 一个字都不许再说"没变"，整段换成下面这套解释，
+   *                          而且解释还要按 d′ 的【方向】再分三种：
+   *                            单调上升 → 练习效应
+   *                            单调下降 → 疲劳 / 标准被推到极端
+   *                            有涨有掉 → 判断本身不稳定（抽样波动）
+   *                          ★ 说死"越来越熟练"，碰上 d′ 一路掉下去的玩家
+   *                            就是当面说假话 —— 这是同一个毛病第三次犯。
+   *   ★ 两套里都有 c 的那段和收尾两句 —— 它们和数据大小没关系，
+   *     任何分支都不许丢（tailParas 就是为这个抽出来的）。
    *   每句话各自成行，都加粗 —— 它是这一屏的落点，不是补充说明。
    * ------------------------------------------------------------------------ */
 
@@ -365,6 +370,7 @@ window.Results = (function () {
 
     var dList = m.map(function (x) { return fmt2(x.dPrime); });     // 1.55、1.40、1.56
     var cList = m.map(function (x) { return fmtC(x.c); });          // 0.00、+0.62、−0.54
+    var cNums = m.map(function (x) { return x.c; });                // 上面那行的原值（判断走向用）
     var aList = m.map(function (x) { return fmtPct(x.accuracy); }); // 80%、73%、77%
 
     var spreadD   = spreadOf(m.map(function (x) { return x.dPrime; }));
@@ -379,9 +385,19 @@ window.Results = (function () {
     function cPara(lead) {
       return para([
         lead, '你的 c 从 ', mono(cList[0]), ' 走到 ', mono(cList[1]),
-        ' 再掉到 ', mono(cList[2]), '，', spreadTxt,
+        // ★ 第三个词的走向也得跟着数据：原来说死"再掉到"，
+        //   c 若在第三轮反而更高（0.4 → +0.60），那句话就是假的
+        cStep(), mono(cList[2]), '，', spreadTxt,
         '——你的标准被"代价"推着走了。',
       ]);
+    }
+
+    // 第三轮的 c 相对第二轮是掉、是升、还是没动（缺数就说中性的"再走到"）
+    function cStep() {
+      if (!isNum(cNums[1]) || !isNum(cNums[2])) return ' 再走到 ';
+      if (cNums[2] < cNums[1]) return ' 再掉到 ';
+      if (cNums[2] > cNums[1]) return ' 再升到 ';
+      return ' 再回到 ';
     }
 
     /* 收尾的两句：准确率 + 信号检测论那句。
@@ -403,23 +419,54 @@ window.Results = (function () {
       /* ★ 摆幅到了这里，"d′ 没变"已经是一句假话 —— 整段换掉。
          起止两轮而不是最小/最大：不然数据若是 0.5 / 1.8 / 0.9，
          会写出"从 0.5 涨到 1.8"，可玩家最后一轮明明是 0.9 —— 那又成了假话。
-         （两轮数据相同这种极端情况才退回最小/最大，保证说的是数轴上的两端。） */
+         （两轮数据相同这种极端情况才退回最小/最大，保证说的是数轴上的两端；
+           能走到这里的一定是 d′ 摆幅 > 0.70，所以 min ≠ max。） */
       var dNum  = m.map(function (x) { return x.dPrime; }).filter(isNum);
       var dFrom = dNum[0];
       var dTo   = dNum[dNum.length - 1];
       if (dFrom === dTo) { dFrom = minOf(dNum); dTo = maxOf(dNum); }
 
-      card.appendChild(para([
-        '你的 d′ 从 ', mono(fmt2(dFrom)),
-        (dTo >= dFrom ? ' 涨到 ' : ' 掉到 '), mono(fmt2(dTo)),
-        ' —— 这', strong('不是'), '"代价改变了能力"。',
-      ]));
+      /* d′ 是怎么动的 —— 决定下面那段解释说什么。
+         ★ 原来说死"练习效应 / 后面已经熟练了"：d′ 从 1.59 掉到 0.00 的玩家
+           会读到"你越来越熟练"，和屏幕上的数字当场打架。
+         单调的定义：三个数依次递增，或依次递减（不是简单比较首末两个数）。 */
+      var dUp = true, dDown = true;
+      for (var q = 1; q < dNum.length; q++) {
+        if (!(dNum[q] > dNum[q - 1])) dUp = false;
+        if (!(dNum[q] < dNum[q - 1])) dDown = false;
+      }
+      var shape = (dUp && dTo > dFrom) ? 'up'
+                : (dDown && dTo < dFrom) ? 'down'
+                : 'mixed';
 
-      card.appendChild(para([
-        '最可能的原因是', strong('练习效应'),
-        '：前几轮你还在摸索怎么读生命体征，后面已经熟练了。' +
-        '纵向实验里很常见，所以正式实验都会先做一轮练习再开始计分。',
-      ]));
+      // 首句：一路上升/下降的说"从 A 到 B"；忽高忽低的两头都不是终点，
+      // 报"三轮是 A、B、C"比挑两个端点诚实（挑端点又变成一句有方向的话了）
+      card.appendChild(para(shape === 'mixed'
+        ? ['你的 d′ 三轮是 ', mono(dList.join('、')), ' —— 摆幅 ',
+           mono(fmt2(spreadD)), '，这', strong('不是'), '"代价改变了能力"。']
+        : ['你的 d′ 从 ', mono(fmt2(dFrom)),
+           (dTo >= dFrom ? ' 涨到 ' : ' 掉到 '), mono(fmt2(dTo)),
+           ' —— 这', strong('不是'), '"代价改变了能力"。']));
+
+      if (shape === 'up') {
+        card.appendChild(para([
+          '最可能的原因是', strong('练习效应'),
+          '：前几轮你还在摸索怎么读生命体征，后面已经熟练了。' +
+          '纵向实验里很常见，所以正式实验都会先做一轮练习再开始计分。',
+        ]));
+      } else if (shape === 'down') {
+        card.appendChild(para([
+          '最可能的原因是', strong('疲劳或注意力下降'),
+          ' —— 这种实验越到后面越容易判断得草率。也可能是', strong('标准被推到了极端'),
+          '：打中和误报一起变得很高时，两者的差距反而会缩小，d′ 就测不准了。',
+        ]));
+      } else {
+        card.appendChild(para([
+          '三轮之间你的 d′ ', strong('忽高忽低'),
+          ' —— 这更像判断本身', strong('不稳定'), '，而不是"能力变了"。' +
+          '每轮只有 15 个信号 + 15 个噪音，抽样波动本来就不小。',
+        ]));
+      }
 
       card.appendChild(cPara('不过 c 的变化仍然说明问题：'));
 

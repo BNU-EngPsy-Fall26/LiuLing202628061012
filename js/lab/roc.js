@@ -59,11 +59,13 @@ window.LabRoc = (function () {
   // 摆幅 → 评语。区间按契约 3.8：小于下界 / 两界之间 / 大于上界
   function pickWord(key, spread) {
     var L = LEX[key];
-    if (typeof spread !== 'number' || !isFinite(spread)) return L.words[0];
+    if (!isNum(spread)) return L.words[0];
     if (spread <  L.cuts[0]) return L.words[0];
     if (spread <= L.cuts[1]) return L.words[1];
     return L.words[2];
   }
+
+  function isNum(v) { return typeof v === 'number' && isFinite(v); }
 
   /* -------------------------------------------------------------- 公式层 */
 
@@ -164,7 +166,8 @@ window.LabRoc = (function () {
       '  <p class="lab-roc-note" style="margin:8px 0 0;' + DIM + '">—</p>',
       '</div>',
 
-      /* — 结论卡（三套文案：没数据 / d′ 摆幅小 / d′ 摆幅大，数字与评语都动态） — */
+      /* — 结论卡（没数据 / d′ 摆幅小 / 大摆幅按方向再分上升·下降·有涨有掉，
+           文案和数字全部动态填） — */
       '<div class="card lab-roc-conclusion"></div>',
 
       /* — z 变换后的 ROC — */
@@ -364,20 +367,67 @@ window.LabRoc = (function () {
         ? '你的三轮 · 这一局的 d′ 也在动'
         : '你的三轮 · 同一条曲线上滑了三下';
 
-      // c 的走法（三轮时"从 A 走到 B 再掉到 C"，和结果页一个句式）
+      /* c 的走法（三轮时"从 A 走到 B 再掉到 C"，和结果页一个句式）。
+         ★ 第三个词的走向也得跟着数据：原来说死"再掉到"，
+           c 若在第三轮反而更高（0.4 → +0.60），那句话就是假的。 */
+      var cVerb = '再走到';
+      if (cs.length > 2 && isNum(cVals[1]) && isNum(cVals[2])) {
+        cVerb = (cVals[2] < cVals[1]) ? '再掉到'
+              : (cVals[2] > cVals[1]) ? '再升到'
+              : '再回到';
+      }
       var cPath = '你的 c 从 ' + cs[0] +
                   (cs.length > 1 ? ' 走到 ' + cs[1] : '') +
-                  (cs.length > 2 ? ' 再掉到 ' + cs[2] : '');
+                  (cs.length > 2 ? ' ' + cVerb + ' ' + cs[2] : '');
+
+      /* d′ 是怎么动的 —— 决定大摆幅那段解释说什么。
+         ★ 原来说死"涨到"：d′ 从 1.59 掉到 0.00 的玩家会读到"涨到 0.00"。
+         起止两轮而不是最小/最大；单调的定义是三个数依次递增或依次递减。 */
+      var dFrom = dVals.length ? dVals[0] : null;
+      var dTo   = dVals.length ? dVals[dVals.length - 1] : null;
+      if (dFrom !== null && dFrom === dTo) {
+        // 首末两轮相同（如 1.5 / 0.3 / 1.5）：退回最小/最大，说的是数轴两端，
+        // 不然会写出"从 1.50 涨到 1.50"。（能进大摆幅分支的必然 min ≠ max）
+        dFrom = Math.min.apply(null, dVals);
+        dTo   = Math.max.apply(null, dVals);
+      }
+      var dUp = true, dDown = true;
+      for (i = 1; i < dVals.length; i++) {
+        if (!(dVals[i] > dVals[i - 1])) dUp = false;
+        if (!(dVals[i] < dVals[i - 1])) dDown = false;
+      }
+      var shape = (dUp && dTo > dFrom) ? 'up'
+                : (dDown && dTo < dFrom) ? 'down'
+                : 'mixed';
+
+      // 大摆幅那四句：首句（方向）+ 解释（按方向）+ c 那句 + 收尾那句
+      var lead, explain, ending;
+      if (shape === 'up') {
+        lead = '你的 d′ 从 ' + dFrom.toFixed(2) + ' 涨到 ' + dTo.toFixed(2) +
+               ' —— 这不是"代价改变了能力"。';
+        explain = '最可能的原因是练习效应：前几轮你还在摸索怎么读生命体征，' +
+                  '后面已经熟练了 —— 纵向实验里很常见，所以正式实验都会先做一轮练习再开始计分。';
+        ending = '三个点也因此没落在同一条曲线上：这一局里，练习和代价混在一起了。';
+      } else if (shape === 'down') {
+        lead = '你的 d′ 从 ' + dFrom.toFixed(2) + ' 掉到 ' + dTo.toFixed(2) +
+               ' —— 这不是"代价改变了能力"。';
+        explain = '最可能的原因是疲劳或注意力下降 —— 这种实验越到后面越容易判断得草率。' +
+                  '也可能是标准被推到了极端：打中和误报一起变得很高时，两者的差距反而会缩小，d′ 就测不准了。';
+        ending = '三个点也因此没落在同一条曲线上：这一局里，疲劳和代价混在一起了。';
+      } else {
+        // 有涨有掉 —— 说"一路上升/下降"都是假话，报全部三轮的数
+        lead = '你的 d′ 三轮是 ' + ds.join('、') + ' —— 这不是"代价改变了能力"。';
+        explain = '三轮之间你的 d′ 忽高忽低 —— 这更像判断本身不稳定，而不是"能力变了"。' +
+                  '每轮只有 15 个信号 + 15 个噪音，抽样波动本来就不小。';
+        ending = '三个点也因此没落在同一条曲线上：这一局里，波动和代价混在一起了。';
+      }
 
       var tail = bigD
-        ? '<p style="margin:0 0 8px;"><strong>你的 d′ 从 ' + (dVals.length ? dVals[0].toFixed(2) : '—') +
-            ' 涨到 ' + (dVals.length ? dVals[dVals.length - 1].toFixed(2) : '—') +
-            ' —— 这不是"代价改变了能力"。</strong></p>' +
-          '<p style="margin:0 0 8px;"><strong>最可能的原因是练习效应：前几轮你还在摸索怎么读生命体征，' +
-            '后面已经熟练了 —— 纵向实验里很常见，所以正式实验都会先做一轮练习再开始计分。</strong></p>' +
+        ? '<p style="margin:0 0 8px;"><strong>' + lead + '</strong></p>' +
+          '<p style="margin:0 0 8px;"><strong>' + explain + '</strong></p>' +
           '<p style="margin:0 0 8px;"><strong>不过 c 的变化仍然说明问题：' + cPath +
             '，摆幅 ' + span(cVals) + '（' + wordC + '）—— 那是你的标准在动。</strong></p>' +
-          '<p style="margin:0;"><strong>三个点也因此没落在同一条曲线上：这一局里，练习和代价混在一起了。</strong></p>'
+          '<p style="margin:0;"><strong>' + ending + '</strong></p>'
         : '<p style="margin:0 0 8px;"><strong>三轮里你的 d′ ' + wordD +
             '，所以三个点大致落在同一条曲线上。</strong></p>' +
           '<p style="margin:0 0 8px;"><strong>但它们的位置不同 —— 那是你的标准 c 在移动。</strong></p>' +

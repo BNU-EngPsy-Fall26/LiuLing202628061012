@@ -6,3 +6,7 @@ node_modules/
 server/sdt.db
 server/*.db-journal
 server/__pycache__/
+
+# 任何位置冒出来的 sqlite 文件都不进 git
+*.db
+*.db-journal

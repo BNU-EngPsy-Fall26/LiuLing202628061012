@@ -65,6 +65,77 @@ window.Admin = (function () {
   var DPRIME_FLAT = 0.30;
   var C_MOVE_RATIO = 1.5;
 
+  /* ---------------------------------------------------------------- 重叠的点
+   *
+   * ★ 真实数据里的坑：两位同学的实测 d′ 完全相同（都是 1.42），坐标一模一样，
+   *   图上就只画得出来一个点 —— 老师会以为班上只有 4 个人交了卷，
+   *   而表格里明明写着"显示 5 / 5 人"、平均值也是按 5 个人算的。
+   *
+   * 所以：只在【两个坐标都完全相同】时才把这些点横向微微错开，
+   * 位置本来就不重合的点一个都不动 —— 否则横轴就没意义了。
+   * 数据本身一个数都不改（tooltip 里报的仍是真实值），图的说明里也照实写。
+   */
+  /* 错开的【一格】有多宽（相邻两个重合点之间）。横轴范围不一样的两张图，
+     同样 0.02 个数据单位差了三四倍：图 2 的横轴是 0~1（0.02 ≈ 图上 7px），
+     图 4 是 0~M（M 常是 2~3，0.02 只有 3px）—— 两个 12px 的圆差几像素还是糊成一团，
+     数不出"这里有两个点"。所以一格取【数据单位】和【横轴全长的比例】里大的那个：
+     图 2 上就是 ±0.02（两点相距 0.04），图 4 上按轴长放大，两张图看着错开一样宽。 */
+  var OVERLAP_STEP  = 0.04;  // 一格的最小宽度（数据单位）—— 图 2 那种 0~1 的轴用它
+  var OVERLAP_RATIO = 0.04;  // 或者：横轴全长的 4%（≈ 图上 15px）—— 图 4 那种 0~3 的轴用它
+  var OVERLAP_SLOTS = 5;     // 一组最多摆 5 个位置（以 0 为中心 ±2 格）
+
+  /* 一组 n 个重合的点各错开多少（以 0 为中心对称摆开，一格见上）。
+     · 两个点（真实数据就是这一档）错开 ±半格，也就是"两点相距一格"；
+     · 三个点及以上按整格摆（−1 / 0 / +1 …）；
+     · 重合的点特别多时把格子压窄，保证总宽度不超过 ±2 格 ——
+       错位是为了让人看清"这里有几个点"，不是把横轴搅乱。 */
+  function overlapOffsets(n, span) {
+    var unit = Math.max(OVERLAP_STEP, (isNum(span) && span > 0 ? span : 0) * OVERLAP_RATIO);
+    var maxW = (OVERLAP_SLOTS - 1) / 2 * unit;        // ±2 格
+    var step = ((n - 1) * unit > 2 * maxW) ? (2 * maxW) / (n - 1) : unit;
+    var out = [];
+    for (var i = 0; i < n; i++) out.push((i - (n - 1) / 2) * step);
+    return out;
+  }
+
+  /* 传入每个点的 x、y（外加横轴全长 span），返回每个点的 { dx, n }：
+     dx = 横坐标要加多少（不重合的点恒为 0），n = 同一个坐标上共有几个点。 */
+  function spreadOverlaps(xs, ys, span) {
+    var out = [], groups = {}, key, i, g, os;
+
+    for (i = 0; i < xs.length; i++) {
+      out.push({ dx: 0, n: 1 });
+      if (!isNum(xs[i]) || !isNum(ys[i])) continue;   // 缺坐标的点不参与分组
+      key = xs[i] + '|' + ys[i];                      // ★ 两个坐标都相同才算重合
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(i);
+    }
+
+    for (key in groups) {
+      if (!Object.prototype.hasOwnProperty.call(groups, key)) continue;
+      g = groups[key];
+      if (g.length < 2) continue;
+      os = overlapOffsets(g.length, span);
+      for (i = 0; i < g.length; i++) {
+        out[g[i]].dx = os[i];
+        out[g[i]].n  = g.length;
+      }
+    }
+    return out;
+  }
+
+  // 这一遍画下来，每张图上最多有几个点叠在同一个坐标上（1 = 没有重叠）
+  var maxOverlap = { roc: 1, sys: 1 };
+
+  // 图下面那行小字：只在真的错开过点时出现（错开过就得说明，没动就别废话）
+  function overlapNote(el, n) {
+    if (!el || !(n > 1)) return;
+    el.appendChild(E('br'));
+    el.appendChild(E('span', 'cap-dim',
+      '为了看清坐标重叠的同学，重叠的点横向做了微小平移（数据本身没有改动）；' +
+      '本图里最多有 ' + n + ' 个点落在同一坐标上。'));
+  }
+
   var state = {
     token: null,
     mode: 'all',
@@ -834,12 +905,24 @@ window.Admin = (function () {
     legendData.push('对角线（纯瞎猜）');
 
     // ③ 每人每轮一个点（任务书 M13 图 2）
+    maxOverlap.roc = 1;
     for (var n = 1; n <= 3; n++) {
-      var data = [];
+      var data = [], xs = [], ys = [];
       for (var k = 0; k < rows.length; k++) {
         var m = rows[k].rounds[n - 1];
         if (m.pH === null) continue;
         data.push({ value: [m.pFA, m.pH], row: rows[k], round: n });
+        xs.push(m.pFA);
+        ys.push(m.pH);
+      }
+      /* 同一轮里两位同学的工作点完全重合（同样的 H、同样的 FA）时，
+         图上只剩一个点 —— 老师数不出有几个人。横向微移一下，数值不动。
+         （图 2 的横轴是 0~1，span 传 1。） */
+      var offs = spreadOverlaps(xs, ys, 1);
+      for (var j = 0; j < data.length; j++) {
+        data[j].value = [xs[j] + offs[j].dx, ys[j]];
+        data[j].dupN  = offs[j].n;
+        if (offs[j].n > maxOverlap.roc) maxOverlap.roc = offs[j].n;
       }
       series.push({
         name: roundLabel(n), type: 'scatter', data: data,
@@ -866,12 +949,15 @@ window.Admin = (function () {
           }
           var row = d.row;
           var m = row.rounds[d.round - 1];
-          return [
+          var lines = [
             esc(nameOf(row)) + ' · ' + esc(row.studentId),
             roundLabel(d.round),
             'P(FA) = ' + monoHtml(m.pFA.toFixed(2)) + '，P(H) = ' + monoHtml(m.pH.toFixed(2)),
             'd′ = ' + monoHtml(fmt2(m.dPrime)) + '，c = ' + monoHtml(fmtC(m.c))
-          ].join('<br>');
+          ];
+          // 这个位置叠着 N 个人（图上把它们横向错开了，得让老师知道）
+          if (isNum(d.dupN) && d.dupN > 1) lines.push('（此位置共 ' + d.dupN + ' 人）');
+          return lines.join('<br>');
         }
       },
       xAxis: {
@@ -899,6 +985,7 @@ window.Admin = (function () {
       parts.push('说明这一班的判断力和系统设定是相称的；点贴着左下方，说明实际比系统更难分辨。');
     }
     para(el, parts);
+    overlapNote(el, maxOverlap.roc);      // 错开过重叠点才加这行说明
   }
 
   /* ------------------------------------------------ 图 3：d′ 分布直方图 */
@@ -994,12 +1081,15 @@ window.Admin = (function () {
   /* --------------------------------------------- 图 4：实测 d′ vs 系统 d′ */
 
   function optSys(rows) {
-    var data = [];
+    maxOverlap.sys = 1;
+    var data = [], xs = [], ys = [];
     var maxV = 0;
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
       if (!isNum(r.systemDPrime) || !isNum(r.overallDPrime)) continue;
       data.push({ value: [r.systemDPrime, r.overallDPrime], row: r });
+      xs.push(r.systemDPrime);
+      ys.push(r.overallDPrime);
       maxV = Math.max(maxV, r.systemDPrime, r.overallDPrime);
     }
     if (!data.length) return null;
@@ -1010,6 +1100,18 @@ window.Admin = (function () {
     var mean = isNum(state.summary && state.summary.dprime && state.summary.dprime.mean)
                  ? state.summary.dprime.mean : null;
 
+    /* ★ 这张图最容易重叠：所有人的系统 d′ 都是同一个数（1.5），点本来就排成
+       一根竖线；实测 d′ 再撞上（两位同学都是 1.42），坐标就完全重合 ——
+       图上只看得到一个点，老师会以为班上只有 4 个人交卷。
+       这里把重合的点横向微移开（错开量按横轴全长 M 折算，见 overlapOffsets），
+       数值一个都不改（tooltip 报的还是真值）。 */
+    var offs = spreadOverlaps(xs, ys, M);
+    for (var j = 0; j < data.length; j++) {
+      data[j].value = [xs[j] + offs[j].dx, ys[j]];
+      data[j].dupN  = offs[j].n;
+      if (offs[j].n > maxOverlap.sys) maxOverlap.sys = offs[j].n;
+    }
+
     return {
       grid: { left: 52, right: 24, top: 34, bottom: 46 },
       legend: { show: false },         // 单系列，关掉主题自带的图例
@@ -1019,12 +1121,17 @@ window.Admin = (function () {
           var r = p.data && p.data.row;
           if (!r) return '';
           var gap = r.systemDPrime - r.overallDPrime;
-          return [
+          var lines = [
             esc(nameOf(r)) + ' · ' + esc(r.studentId),
             '系统 d′ = ' + monoHtml(fmt2(r.systemDPrime)),
             '实测 d′ = ' + monoHtml(fmt2(r.overallDPrime)),
             '差了 ' + monoHtml(fmt2(Math.abs(gap))) + (gap >= 0 ? '（低于理想观察者）' : '（高于理想观察者）')
-          ].join('<br>');
+          ];
+          // 这个位置叠着 N 个人（图上把它们横向错开了，得让老师知道）
+          if (p.data && isNum(p.data.dupN) && p.data.dupN > 1) {
+            lines.push('（此位置共 ' + p.data.dupN + ' 人）');
+          }
+          return lines.join('<br>');
         }
       },
       xAxis: {
@@ -1045,8 +1152,9 @@ window.Admin = (function () {
         },
         {
           name: '每位同学', type: 'scatter', data: data, symbolSize: 12, z: 5,
-          // 所有人的系统 d′ 都是同一个数（1.5），点会落在同一根竖线上 ——
-          // 描边用卡片底色，叠在一起也看得出有几个点
+          // 所有人的系统 d′ 都是同一个数（1.5），点本来就排成一根竖线；
+          // 描边用卡片底色，挨在一起也分得开；坐标【完全】重合的那几个
+          // 已经横向微移开了（见 spreadOverlaps），不会再压成一个点
           itemStyle: { color: C.accent, borderColor: SURFACE, borderWidth: 1.5, opacity: 0.9 },
           markLine: mean === null ? undefined : {
             silent: true, symbol: 'none', z: 4,
@@ -1090,6 +1198,7 @@ window.Admin = (function () {
         mono(fmt2(gap)),
         E('span', 'cap-dim', '。）')
       ]);
+      overlapNote(el, maxOverlap.sys);      // 错开过重叠点才加这行说明
       return;
     }
 
@@ -1104,6 +1213,7 @@ window.Admin = (function () {
       ' —— 点就压在对角线上。这说明这个设计里的体征读数相当透明，',
       '大家基本做到了理想观察者的水平，「真人会系统性低于理想观察者」这句话在你们这班不成立。'
     ]);
+    overlapNote(el, maxOverlap.sys);
   }
 
   function renderCharts() {
