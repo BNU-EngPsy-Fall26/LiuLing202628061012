@@ -45,7 +45,13 @@
  *   任务书上"应该显示 0.79"那个数两个式子都给不出来。
  *   改动只有一处（见下面 aPrimeOf 里标了 ★ 的那行），要换回去一行的事。
  *
- * 【依赖】契约 5.4 的 Utils（ncdf / npdf / zScore / clamp）、5.5 的 Chart。
+ * 【这一屏画的是模型，不是你的成绩】
+ *   两条曲线是按 d′ 现画的【理论模型】（契约 3.2），不读患者数据；实测的 d′ 只有
+ *   玩完三轮之后才有 —— 所以页面上给了一条"你自己实测的 d′"（读 Store.rounds，
+ *   契约 5.3），点一下就把滑块跳到你的值，这一屏才和"我玩的那一局"接上。
+ *
+ * 【依赖】契约 5.4 的 Utils（ncdf / npdf / zScore / clamp）、5.5 的 Chart、
+ *   5.3 的 Store（只读 rounds，缺了也不报错）。
  *   所有分布计算一律走 Utils，本文件不自己实现 Φ 或 z。
  * ==========================================================================*/
 
@@ -87,6 +93,39 @@ window.LabDist = (function () {
     return '中立';
   }
 
+  /* ------------------------------------------------- 连回玩家自己的数据
+   *
+   * 【为什么要有这一段】
+   *   这一屏画的是【理论模型】（两条正态分布），契约定的分工就是不读患者数据。
+   *   但玩家刚跑完三轮、他自己实测的 d′ 就躺在 Store.rounds 里（契约 5.3 / 4.3），
+   *   面板一个字都不提 —— 玩家就会以为这一屏在展示某个"标准状态"。
+   *   所以给他三个按钮：点一下就把上面的 d′ 滑块跳到他自己的那个值。
+   *
+   * 【边界】
+   *   · Store 不存在 / rounds 为空（游客、直接进实验室）→ 只给一句提示，不报错
+   *   · 实测 d′ 可能为负（pH < pFA），而滑块只有 0~4 → 夹进范围，并说明夹到了哪边
+   */
+  var MY_NAMES = ['第一轮', '第二轮', '第三轮'];
+
+  // 两位小数，减号用 U+2212（−）—— 和结果页 / ROC 面板的写法一致
+  function fmt2(v) {
+    if (typeof v !== 'number' || !isFinite(v)) return '—';
+    return (Math.round(v * 100) / 100).toFixed(2).replace('-', '−');
+  }
+
+  // 从 Store.rounds 里取玩家自己三轮的 d′（缺的、不是数的就跳过）
+  function readMyRounds() {
+    var out = [];
+    var rounds = (window.Store && window.Store.rounds) ? window.Store.rounds : null;
+    if (!rounds || !rounds.length) return out;
+    for (var i = 0; i < rounds.length && i < MY_NAMES.length; i++) {
+      var m = rounds[i] && rounds[i].metrics;
+      if (!m || typeof m.dPrime !== 'number' || !isFinite(m.dPrime)) continue;
+      out.push({ name: MY_NAMES[i], dPrime: m.dPrime });
+    }
+    return out;
+  }
+
   /* ------------------------------------------------------------ HTML 片段 */
 
   function sliderRow(id, cls, label, min, max, step, val, hint) {
@@ -120,6 +159,32 @@ window.LabDist = (function () {
     var state = { d: DEF_D, c: DEF_C };
     var inst  = null;         // 主图实例（★ 只在 render 里建，见契约 5.6）
 
+    // 玩家上一局自己三轮的实测 d′（读 Store.rounds；没玩过就是空数组）
+    var my = readMyRounds();
+    var myBlock;
+    if (my.length) {
+      myBlock = [
+        '  <p style="margin:0 0 10px;font-size:0.85rem;color:var(--c-text-dim);line-height:1.6;">',
+        '    这是你上一局三轮各自实测的 d′。点一下，就把上面的 d′ 滑块跳到那个值。',
+        '  </p>',
+        '  <div class="btn-row lab-dist-my-btns">',
+        my.map(function (r, i) {
+          return '<button class="btn btn-ghost" data-my-round="' + i + '">' +
+                 r.name + ' ' + fmt2(r.dPrime) + '</button>';
+        }).join(''),
+        '  </div>',
+        // 实测 d′ 超出滑块范围时，那句话写在这里（见下面的点击逻辑）
+        '  <p class="lab-dist-my-note" style="margin:10px 0 0;font-size:0.82rem;' +
+          'color:var(--c-watch);line-height:1.6;"></p>',
+      ].join('\n');
+    } else {
+      myBlock = [
+        '  <p style="margin:0;font-size:0.85rem;color:var(--c-text-dim);line-height:1.6;">',
+        '    玩完三轮再回来看，这里会标出你自己实测的 d′。',
+        '  </p>',
+      ].join('\n');
+    }
+
     el.innerHTML = [
       /* — 控件 — */
       '<div class="card">',
@@ -128,6 +193,12 @@ window.LabDist = (function () {
                 'd′ 越大，两条曲线分得越开 —— 这是"能力"。'),
       sliderRow('lab-dist-c', 'lab-dist-sld-c', '判定标准 c', -2, 2, 0.05, DEF_C,
                 'c 越大 = 判定线越靠右 = 越保守 —— 这是"态度"，它不动 d′，只动 β。'),
+      '</div>',
+
+      /* — 把这一屏和玩家刚跑完的那一局接上 — */
+      '<div class="card">',
+      '  <div class="card-head">你自己实测的 d′（上一局）</div>',
+      myBlock,
       '</div>',
 
       /* — 主图 — */
@@ -142,7 +213,16 @@ window.LabDist = (function () {
          每条说明都补上"你却判成了什么"。 */
       '  <p style="margin:10px 0 0;font-size:0.82rem;color:var(--c-text-dim);line-height:1.6;">',
       '    想象你在两条曲线重叠的地方切下去 —— 切在哪儿由 c 决定，那一条线就是<b>判定线</b>。<br>',
-      '    横轴是判定标准 c 的尺子：噪音分布在 −d′/2、信号分布在 +d′/2，两峰相距 d′。',
+      /* ★ 这句原来写的是"噪音分布在 −d′/2、信号分布在 +d′/2，两峰相距 d′"：
+         · −d′/2 / +d′/2 是【实现细节】—— 选这个刻度只是为了让判定线落在 x = c、
+           β = exp(c·d′) 干净，玩家不需要知道；
+         · "两峰相距 d′"是同义反复 —— 峰就定义在 ∓d′/2，相距当然是 d′，
+           读起来像信息，其实什么都没说；
+         · 而且没说清这一屏是【理论模型】、曲线间距是可以拖的，玩家会以为
+           这里画的是某个"标准状态"、固定不变。
+         现在：说清是模型、说清间距就是 d′ 且能拖。 */
+      '    横轴是判定标准 c 的尺子。<br>',
+      '    这是<b>理论模型</b>：两条曲线的横向间距就是 d′ —— 拖上面的滑块就能看到它变。',
       '  </p>',
       '  <p style="margin:8px 0 0;font-size:0.82rem;line-height:1.7;">',
       '    <span style="color:var(--c-danger);">■ 红色阴影的面积 = 误报率 P(FA)</span><br>',
@@ -345,6 +425,35 @@ window.LabDist = (function () {
 
     dSld.addEventListener('input', onSlide);
     cSld.addEventListener('input', onSlide);
+
+    /* ---- "你自己实测的 d′" 那几个按钮 ----
+       点了就把 d′ 滑块跳到那个值：改 state → 改滑块 DOM → sync() 重画。
+       ★ 三步缺一不可：只改 DOM 不改 state 的话，下一次拖 c 会把 d′ 打回原值；
+         改了 state 不 sync() 的话，图不跟着变 —— 那就是个假按钮。
+       ★ 滑块只有 0~4，而实测 d′ 可能为负（pH < pFA）——夹进去并说明，
+         不然玩家点了按钮看见滑块不动，会以为按钮坏了。 */
+    var myBtns = el.querySelectorAll('.lab-dist-my-btns button');
+    var myNote = el.querySelector('.lab-dist-my-note');
+    for (var b = 0; b < myBtns.length; b++) {
+      (function (btn) {
+        btn.addEventListener('click', function () {
+          var r = my[parseInt(btn.getAttribute('data-my-round'), 10)];
+          if (!r) return;
+
+          var v = Utils.clamp(r.dPrime, 0, 4);
+          if (myNote) {
+            myNote.textContent = (Math.abs(v - r.dPrime) > 1e-9)
+              ? '你的' + r.name + '实测 d′ 是 ' + fmt2(r.dPrime) +
+                '，超出了滑块范围（0 ~ 4），已夹到最' + (r.dPrime < 0 ? '左' : '右') + '边。'
+              : '';
+          }
+
+          state.d = v;
+          dSld.value = v;
+          sync();
+        });
+      })(myBtns[b]);
+    }
 
     // ★ 建图：容器此刻已经可见（契约 5.6：render 由 showLab 在第一次显示时调用）
     inst = Chart.make(el.querySelector('.lab-dist-chart'), buildOption(state.d, state.c));
