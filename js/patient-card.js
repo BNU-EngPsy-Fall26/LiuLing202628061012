@@ -463,6 +463,13 @@ window.PatientCard = (function () {
 
   return {
     render: render,
+
+    // ★ 生命体征分档阈值表（上面第 1 节的 VITAL_RANGES），原样交出去。
+    //   监护仪面板（js/monitor.js）的读数上色、以及报警灯的档位，都要用【同一张表】——
+    //   抄一份出去就等于有了第二份真源，改了一边忘了另一边时会【悄悄】不一致：
+    //   卡片把 118 标成黄的，面板标成绿的，玩家会以为哪里坏了。
+    //   只加这一个导出，本文件的任何逻辑都没动。
+    VITAL_RANGES: VITAL_RANGES,
   };
 
 })();

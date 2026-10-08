@@ -438,7 +438,9 @@ main{
   box-shadow: 0 0 8px currentColor, 0 0 18px currentColor;
 }
 
-/* 颜色和闪烁速度都由 severity 那一档决定（阈值见 PatientData.tierRules.bounds） */
+/* 颜色和闪烁速度都由【灯的那一档】决定：档 = 五项生命体征里最差的那一档
+   （阈值和患者卡片同一张表 —— PatientCard.VITAL_RANGES，见 js/monitor.js 第 3.1 节）。
+   ★ 不读 severity：灯只汇总已经摆在卡片上的信息，一个比特都不多。 */
 
 .monitor-alarm.normal{
   color: var(--c-normal);

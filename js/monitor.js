@@ -2,21 +2,23 @@
  * js/monitor.js —— 监护仪面板（视觉层 · 第 1 阶段）
  *
  * 【它是什么】游戏屏里、患者卡片【上方】的那块"监护仪"：
- *   一条向左滚动的心电波形 + 三组大号读数 + 一颗按严重度闪烁的报警灯 + 一层光晕。
+ *   一条向左滚动的心电波形 + 三组大号读数 + 一颗跟着体征闪烁的报警灯 + 一层光晕。
  *   纯增量：删掉它（或者根本不调 render），整局照样跑得完。
  *
- * 【它从哪儿拿数】
+ * 【它从哪儿拿数 —— ★ 只看 patient.vitals，别的什么都不看】
  *   · 波形的心率、三组读数 —— 全部直接读 patient.vitals，一个字都不自己算。
  *     面板上的 118 必须就是卡片上的 118：两处读的是同一个 patient.vitals.hr。
- *   · 报警灯的颜色和闪烁速度 —— 由 patient.severity 分档决定，
- *     边界从 PatientData.tierRules.bounds 现读（0.4 / 1.1，见 js/patient-data.js）。
- *     不写死在这里：写死了就成了第二份真源，早晚和那边对不上。
- *   · 读数的颜色 —— 和患者卡片那一行用同一套阈值、同一批类名（.vital-normal / -watch /
- *     -danger，颜色定义在 styles/main.css）。阈值表见下面第 1 节，它镜像
- *     js/patient-card.js 的 VITAL_RANGES。
+ *   · 报警灯的档 —— 五项生命体征里【最差的那一档】（见下面第 3.1 节）。
+ *   · 读数的颜色 —— 和患者卡片那一行用【同一张阈值表】（PatientCard.VITAL_RANGES）
+ *     和同一批类名（.vital-normal / -watch / -danger，颜色定义在 styles/main.css）。
+ *
+ *   ★ M视觉1b 之前，灯的档是直接读 patient.severity 的。那是一处【泄漏】：
+ *     severity 是底层决策变量本身、且是【无噪声】的读数，而主诉/来院方式都按
+ *     adjacentChance 故意掺过噪声。现在**本文件一次都不读 severity**：
+ *     灯只汇总已经摆在卡片上的那五个数，一个比特都不多。
+ *     （审计：grep -nE "severit[y]" js/monitor.js 去掉注释行后应当 0 命中。）
  *
  * 【★ 铁律（CONTRACT.md 第 8 节）】
- *   ✅ 允许：根据 severity / vitals 决定波形密度、灯的颜色、闪烁速度
  *   ❌ 禁止：任何形式的 if (patient.hasSignal)
  *   ❌ 禁止：把 hasSignal 写进 DOM / data-* / class / title
  *   ❌ 禁止：console.log 打印 patient
@@ -28,14 +30,12 @@
  *
  *       grep -nE "has[S]ignal" js/monitor.js
  *
- *   判据：应当命中 3 行，且**【全部在文件开头的这段说明里】**（第 20 / 21 / 46 行）。
+ *   判据：应当命中 3 行，且**【全部在文件开头的这段说明里】**（第 22 / 23 / 46 行）。
  *   只看代码、把注释行（`*` 块注释和 `//` 行注释）滤掉：
  *
  *       grep -nE "has[S]ignal" js/monitor.js | grep -vE "^[0-9]+: *(//|\*)"
  *
  *   判据：**0 命中**。命中 ≥1 行就说明有人把它写进了真代码，重点查是不是分支条件。
- *   （severity 反过来：代码里【正好读一次】，就是报警灯那一行 —— 它是任务书
- *     明确允许的输入，见 §三"✅ 允许"。）
  *
  *   ★ 为什么注释里不把它藏起来：藏了之后 grep 是 0 命中，但那个 0 只说明
  *     "用了藏的手法"，不说明"没读"，审计反而变成走过场（patient-card.js 头部
@@ -62,28 +62,51 @@ window.Monitor = (function () {
 
   var FALLBACK_ACCENT = '#2ED3A6';   // tokens.css 的 --c-accent（读不到时的兜底）
   var FALLBACK_HR     = 72;          // vitals.hr 缺失时的兜底心率
-  var FALLBACK_BOUNDS = [0.4, 1.1];  // PatientData.tierRules.bounds 的兜底
 
   var PX_PER_SECOND   = 140;         // 走纸速度：每秒 140 像素（向左滚）
   var MIN_BPS         = 0.5;         // 心率下限 30 bpm（防除零/防疯跑）
   var MAX_BPS         = 4.0;         // 心率上限 240 bpm
 
   /* --------------------------------------------------------------------------
-   * 1. 读数分档阈值 —— 镜像 js/patient-card.js 的 VITAL_RANGES
+   * 1. 生命体征分档阈值 —— 只有一个真源：js/patient-card.js 的 VITAL_RANGES
    *
-   * 【为什么在这儿抄了一份】patient-card.js 没把这个表导出来，而本次任务
-   *   只允许新建本文件、不许改 patient-card.js。所以这里照抄一份，
-   *   只抄面板上要显示的三项（心率 / 血压 / 血氧），阈值和判断顺序都一样：
-   *   normal → watch → danger（压在边界上的值算正常）。
-   *   ★ 改 patient-card.js 的阈值时，这张表要跟着改 —— 自测里有一条
-   *     "面板上的颜色类名 = 卡片上的颜色类名"（20 位随机患者）专门盯这个。
+   * 【为什么现在能直接读它】M视觉1b 让 patient-card.js 把它导出来了
+   *   （`PatientCard.VITAL_RANGES`）。在那之前这里抄过一份，抄两份的坏处是：
+   *   改了一边忘了另一边时，两边会【悄悄】不一致 —— 卡片把 118 标成黄的、
+   *   面板标成绿的，玩家以为哪里坏了，而程序一个错都不报。
+   *
+   * 【下面的 FALLBACK_RANGES】只在"单独加载 monitor.js、PatientCard 不在"
+   *   时才用（比如某个只画面板的小页面）。这种情况下控制台会 warn 一句 ——
+   *   它是兜底，不是第二份真源：只要 PatientCard 在，就一律走它那张表。
+   *
+   * 【格式】normal 是正常区间，watch 是需观察区间（可以有好几段），
+   *   两个都不落在里面 → 危急；判断顺序 normal → watch → danger，
+   *   **压在边界上的值算正常**（和 patient-card.js 完全一致）。
+   *   consciousness 不是数字，按词表查；词表里没有的写法一律按"需观察"。
    * ------------------------------------------------------------------------ */
 
-  var VITAL_BANDS = {
-    hr:   { normal: [60, 100],       watch: [[50, 60], [100, 120]] },
-    sbp:  { normal: [90, 140],       watch: [[85, 90], [140, 160]] },
-    spo2: { normal: [95, Infinity],  watch: [[90, 94]] },
+  var FALLBACK_RANGES = {
+    temp: { label: '体温', unit: '°C', digits: 1, normal: [36.0, 37.5], watch: [[35.5, 36.0], [37.5, 38.5]] },
+    hr:   { label: '心率', unit: '',   digits: 0, normal: [60, 100],   watch: [[50, 60], [100, 120]] },
+    sbp:  { label: '血压', unit: '',   digits: 0, normal: [90, 140],   watch: [[85, 90], [140, 160]] },
+    spo2: { label: '血氧', unit: '%',  digits: 0, normal: [95, Infinity], watch: [[90, 94]] },
+    consciousness: { label: '意识', unit: '', levels: { '清醒': 'normal', '嗜睡': 'watch', '昏睡': 'danger', '昏迷': 'danger' } },
   };
+
+  var warnedRanges = false;
+
+  function ranges() {
+    var pc = window.PatientCard;
+    if (pc && pc.VITAL_RANGES) return pc.VITAL_RANGES;
+
+    if (!warnedRanges) {
+      warnedRanges = true;
+      console.warn('[Monitor] 读不到 PatientCard.VITAL_RANGES，退回本文件里的兜底阈值。' +
+                   '兜底那份可能已经和 patient-card.js 对不上 —— 请检查 js/monitor.js ' +
+                   '有没有排在 js/patient-card.js 后面加载。');
+    }
+    return FALLBACK_RANGES;
+  }
 
   // 分档 → main.css 里已有的类（和患者卡片用的是同一批）
   var BAND_CLASS = {
@@ -91,6 +114,10 @@ window.Monitor = (function () {
     watch:  'vital-watch',
     danger: 'vital-danger',
   };
+
+  // 分档的"好坏"次序：0 正常 < 1 需观察 < 2 危急。报警灯取五项里的最大值。
+  var BAND_RANK = { normal: 0, watch: 1, danger: 2 };
+  var RANK_BAND = ['normal', 'watch', 'danger'];
 
   /* --------------------------------------------------------------------------
    * 2. 一个心动周期的形状
@@ -151,16 +178,70 @@ window.Monitor = (function () {
     return d === null ? s : s + '/' + d;
   }
 
+  // 数值 / 词 → 分档。★ 和 patient-card.js 的 bandOf() 逐条对齐：
+  //   · 数值缺失返回 null（那一项不参与分档，显示成占位符）
+  //   · 顺序 normal → watch → danger（压在边界上的值算正常）
+  //   · consciousness 查 levels 词表，词表里没有的写法一律 'watch'
+  //     （不用红或绿去猜 —— 猜成绿会让玩家以为一切正常）
+  function inRange(v, r) {
+    return v >= r[0] && v <= r[1];
+  }
+
   function bandOf(key, vitals) {
-    var spec = VITAL_BANDS[key];
+    var spec = ranges()[key];
+    if (!spec) return null;
+
+    if (spec.levels) {
+      var word = vitals[key];
+      if (!word) return null;
+      return spec.levels[word] || 'watch';
+    }
+
     var v = vitals[key];
     if (!isNum(v)) return null;
 
-    if (v >= spec.normal[0] && v <= spec.normal[1]) return 'normal';
+    if (inRange(v, spec.normal)) return 'normal';
     for (var i = 0; i < spec.watch.length; i++) {
-      if (v >= spec.watch[i][0] && v <= spec.watch[i][1]) return 'watch';
+      if (inRange(v, spec.watch[i])) return 'watch';
     }
     return 'danger';
+  }
+
+  /* --------------------------------------------------------------------------
+   * 3.1 ★ 报警灯：档 = 五项生命体征里【最差的那一档】
+   *
+   * 【为什么不是 severity（M视觉1b 改的）】灯原来直接读 severity —— 那是底层决策
+   *   变量本身，是个【无噪声】的读数，而主诉/来院方式这两条线索都按
+   *   adjacentChance 故意掺了噪声。一条干净的 severity 通道等于把答案送到玩家手上，
+   *   实测 d′ 会从 1.3 往 1.5 靠，游戏变简单（契约 3.3.1 讲的就是这件事）。
+   *
+   *   现在**一个比特都不多**：灯只汇总【已经显示在卡片上】的那五项，
+   *   玩家自己也能看出"有一项偏黄"。而且这也更像真的监护仪 ——
+   *   机器就是照着屏幕上那几个数报警的，没有哪台机器读得到 ground truth。
+   *
+   * 【用全部五项，不是面板上那三项】灯说的是"这位患者整体看起来怎么样"，
+   *   而卡片上摆的就是五项。只看三项的话会出现"体温都烧到 39 度了、灯还是绿的"。
+   *
+   * 【为什么用 Object.keys(VITAL_RANGES) 而不是写死一张五项清单】
+   *   清单和阈值来自同一张表，将来那张表加一项（比如呼吸频率），灯自动跟上，
+   *   不用回来改这里 —— 少一个能忘的地方。
+   * ------------------------------------------------------------------------ */
+
+  function alarmBand(patient) {
+    var vitals = (patient && patient.vitals) || {};
+    var keys = Object.keys(ranges());
+    var worst = 0, seen = false;
+
+    for (var i = 0; i < keys.length; i++) {
+      var band = bandOf(keys[i], vitals);
+      if (band === null) continue;            // 这一项缺失：不参与，也不当它是正常
+      seen = true;
+      if (BAND_RANK[band] > worst) worst = BAND_RANK[band];
+    }
+
+    // 五项一项都读不出来时不报警（中性：绿常亮）。真要全都缺，
+    // 问题在数据源那边，不该由一盏灯去猜。
+    return RANK_BAND[seen ? worst : 0];
   }
 
   function makeEl(tag, cls, text) {
@@ -168,14 +249,6 @@ window.Monitor = (function () {
     if (cls) node.className = cls;
     if (text !== undefined && text !== null) node.textContent = text;
     return node;
-  }
-
-  // 报警灯的三档：阈值现读 patient-data.js，别在这儿写死
-  function alarmBounds() {
-    var rules = window.PatientData && window.PatientData.tierRules;
-    var b = rules && rules.bounds;
-    return (b && typeof b[0] === 'number' && typeof b[1] === 'number')
-             ? b : FALLBACK_BOUNDS;
   }
 
   /* --------------------------------------------------------------------------
@@ -323,16 +396,6 @@ window.Monitor = (function () {
     panel.appendChild(row);
 
     return { panel: panel, canvas: canvas };
-  }
-
-  // 报警灯的分档名。★ 只看 severity，从不看那位患者的真实答案。
-  function alarmBand(patient) {
-    var b = alarmBounds();
-    var s = patient.severity;
-    if (!isNum(s)) return 'normal';        // 拿不到严重度就别报警（中性：常亮绿）
-    if (s < b[0]) return 'normal';
-    if (s < b[1]) return 'watch';
-    return 'danger';
   }
 
   /* --------------------------------------------------------------------------
