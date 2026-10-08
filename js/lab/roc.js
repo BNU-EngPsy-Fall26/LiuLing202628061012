@@ -67,6 +67,48 @@ window.LabRoc = (function () {
 
   function isNum(v) { return typeof v === 'number' && isFinite(v); }
 
+  /* 「趋势型」那一档的两个阈值（契约 3.8 的补充）
+     ★ 数值与 js/results.js 的 TREND_FAR / TREND_NEAR 逐字一致 ——
+       同一批数据在两个页面上必须判成同一档，改一个必须改另一个。 */
+  var TREND_FAR  = 0.70;   // 首末差 ≥ 这个数：这一局确实变了一大截
+  var TREND_NEAR = 0.35;   // 中段差 ≤ 这个数：变化集中在最后一段，前两轮是稳的
+
+  /* d′ 是怎么动的 → 'up' / 'down' / 'mixed'（四档判据，见 js/results.js 的同名函数）
+     1. 严格单调上升 → up   2. 严格单调下降 → down
+     3. 趋势型（首末差得远、中间那轮基本没动）→ 按【末轮 vs 首轮】的方向
+     4. 其余 → mixed
+     ★ 第 3 档是为真实数据 1.56 / 1.59 / 0.00 补的：1.56→1.59 那 0.03 只是抽样噪声，
+       真相是前两轮稳、第三轮崩了，不该判成"忽高忽低"。 */
+  function shapeOf(vals) {
+    var v = vals.filter(isNum);
+    var up = true, down = true, i;
+    for (i = 1; i < v.length; i++) {
+      if (!(v[i] > v[i - 1])) up = false;
+      if (!(v[i] < v[i - 1])) down = false;
+    }
+    var first = v[0], last = v[v.length - 1];
+    if (up && v.length > 1 && last > first) return 'up';
+    if (down && v.length > 1 && last < first) return 'down';
+
+    var mid = v.length > 2 ? v[1] : null;
+    if (isNum(first) && isNum(last) && isNum(mid) &&
+        Math.abs(last - first) >= TREND_FAR &&
+        Math.abs(mid - first) <= TREND_NEAR) {
+      return last < first ? 'down' : 'up';
+    }
+    return 'mixed';
+  }
+
+  /* 数字里的减号统一成 U+2212（−）——
+     ★ 和 js/results.js 一样（那边 fmt2 / fmtC 一直是 U+2212）。
+     同一个数在两页上必须长得一模一样，不然学生并排一放，会以为是自己看错了。 */
+  function neg(s) { return String(s).replace('-', '−'); }
+
+  function fmtNum(v, digits) {           // 普通数字：−0.52 / 0.00 / 1.50
+    if (!isNum(v)) return '—';
+    return neg(v.toFixed(digits === undefined ? 2 : digits));
+  }
+
   /* -------------------------------------------------------------- 公式层 */
 
   function pHit(d, c) { return 1 - Utils.ncdf(c - d / 2); }
@@ -92,11 +134,11 @@ window.LabRoc = (function () {
     return Utils.ncdf(Utils.zScore(p) + d);
   }
 
-  // 带正负号显示 c（0 不写成 +0.00）
+  // 带正负号显示 c（0 不写成 +0.00）；减号用 U+2212（−），和 js/results.js 的 fmtC 一致
   function fmtC(c) {
-    if (typeof c !== 'number') return '—';
+    if (typeof c !== 'number' || !isFinite(c)) return '—';
     if (c > 0.005) return '+' + c.toFixed(2);
-    if (c < -0.005) return '-' + Math.abs(c).toFixed(2);
+    if (c < -0.005) return '−' + Math.abs(c).toFixed(2);
     return '0.00';
   }
 
@@ -129,7 +171,7 @@ window.LabRoc = (function () {
                ' style="flex:1 1 auto;min-width:0;accent-color:var(--c-primary);">' +
              '<span class="' + cls + '-val"' +
                ' style="flex:0 0 3.6em;text-align:right;font-family:var(--font-mono);font-size:1rem;">' +
-               Number(val).toFixed(2) + '</span>' +
+               fmtNum(Number(val), 2) + '</span>' +
            '</div>' +
            (hint ? '<p style="margin:0;padding-left:calc(6.5em + 12px);font-size:0.78rem;' +
                    'color:var(--c-text-dim);">' + hint + '</p>' : '');
@@ -166,8 +208,9 @@ window.LabRoc = (function () {
       '  <p class="lab-roc-note" style="margin:8px 0 0;' + DIM + '">—</p>',
       '</div>',
 
-      /* — 结论卡（没数据 / d′ 摆幅小 / 大摆幅按方向再分上升·下降·有涨有掉，
-           文案和数字全部动态填） — */
+      /* — 结论卡：没数据 / d′ 摆幅小 / 大摆幅。
+           大摆幅还要按 d′ 的走向分四档（严格上升 / 严格下降 / 趋势型 / 有涨有掉，
+           见 shapeOf），c 那句再按"c 动没动"分两支 —— 文案和数字全部动态填。 — */
       '<div class="card lab-roc-conclusion"></div>',
 
       /* — z 变换后的 ROC — */
@@ -229,7 +272,7 @@ window.LabRoc = (function () {
             for (i = 0; i < rounds.length; i++) {
               if (Math.abs(rounds[i].pFA - pf) < HIT_TOL) {
                 out.push('<span style="opacity:.75;">' + rounds[i].name + '的工作点：d′ = ' +
-                         (rounds[i].dPrime === null ? '—' : rounds[i].dPrime.toFixed(2)) +
+                         fmtNum(rounds[i].dPrime) +
                          '，c = ' + fmtC(rounds[i].c) + '</span>');
               }
             }
@@ -294,17 +337,20 @@ window.LabRoc = (function () {
             if (!params || !params.length) return '';
             var v = params[0].axisValue;
             if (typeof v !== 'number') return '';
-            return 'z(P(FA)) = ' + v.toFixed(2) + '<br>' +
-                   'z(P(H))  = ' + (v + d).toFixed(2) + '<br>' +
+            return 'z(P(FA)) = ' + fmtNum(v) + '<br>' +
+                   'z(P(H))  = ' + fmtNum(v + d) + '<br>' +
                    '<span style="opacity:.75;">等于 P(FA) = ' + Utils.ncdf(v).toFixed(3) +
                    '，P(H) = ' + Utils.ncdf(v + d).toFixed(3) + '</span>';
           },
         },
         xAxis: {
           type: 'value', name: 'z(P(FA))', nameLocation: 'middle', nameGap: 26,
+          // 这张图的刻度会有负数，减号也得是 U+2212（ECharts 默认给的是 ASCII 连字符）
+          axisLabel: { formatter: function (v) { return neg(String(v)); } },
         },
         yAxis: {
           type: 'value', name: 'z(P(H))', nameLocation: 'middle', nameGap: 40,
+          axisLabel: { formatter: function (v) { return neg(String(v)); } },
         },
         series: [
           { id: 'zline', type: 'line', data: [[-Z_MAX, -Z_MAX + d], [Z_MAX, Z_MAX + d]],
@@ -338,7 +384,7 @@ window.LabRoc = (function () {
 
       var ds = [], cs = [], i;
       for (i = 0; i < rounds.length; i++) {
-        ds.push(rounds[i].dPrime === null ? '—' : rounds[i].dPrime.toFixed(2));
+        ds.push(fmtNum(rounds[i].dPrime));
         cs.push(fmtC(rounds[i].c));
       }
       var dVals = [], cVals = [];
@@ -380,9 +426,24 @@ window.LabRoc = (function () {
                   (cs.length > 1 ? ' 走到 ' + cs[1] : '') +
                   (cs.length > 2 ? ' ' + cVerb + ' ' + cs[2] : '');
 
-      /* d′ 是怎么动的 —— 决定大摆幅那段解释说什么。
+      /* c 到底动没动 —— 决定 c 那句是"标准在动"还是如实说"几乎没动"。
+         ★ 原来说死"c 的变化仍然说明问题 … 那是你的标准在动"：
+           c 摆幅 0.18 的玩家先读到自己的"（几乎没动）"，再被告诉"标准在动"，同一屏自我矛盾。
+         ★ 分界故意取注释行那三个词自己的界（LEX：摆幅到 0.20 就算动）——
+           两边同一个界，注释行的词和这句话才对得上，不会同屏打架。 */
+      var cMoved = isNum(spreadC) && spreadC >= LEX.c.cuts[0];
+      var cPara = cMoved
+        ? '不过 c 的变化仍然说明问题：' + cPath +
+          '，摆幅 ' + span(cVals) + '（' + wordC + '）—— 那是你的标准在动。'
+        : '不过这一局里 c 几乎没动 —— 摆幅只有 ' + span(cVals) +
+          '。说明这几轮的代价变化没有推动你的标准：你可能有一套自己固定的判断习惯，' +
+          '不太受"代价"这句话的影响。这也是真实存在的情况。';
+
+      /* d′ 是怎么动的 —— 决定大摆幅那段解释说什么（四档判据见 shapeOf）。
          ★ 原来说死"涨到"：d′ 从 1.59 掉到 0.00 的玩家会读到"涨到 0.00"。
-         起止两轮而不是最小/最大；单调的定义是三个数依次递增或依次递减。 */
+         ★ 趋势型（前两轮稳、最后一轮变了一大截）也按方向算 —— 真实数据
+           1.56 / 1.59 / 0.00 里那 0.03 只是抽样噪声，不该判成"忽高忽低"。
+         起止两轮而不是最小/最大。 */
       var dFrom = dVals.length ? dVals[0] : null;
       var dTo   = dVals.length ? dVals[dVals.length - 1] : null;
       if (dFrom !== null && dFrom === dTo) {
@@ -391,25 +452,18 @@ window.LabRoc = (function () {
         dFrom = Math.min.apply(null, dVals);
         dTo   = Math.max.apply(null, dVals);
       }
-      var dUp = true, dDown = true;
-      for (i = 1; i < dVals.length; i++) {
-        if (!(dVals[i] > dVals[i - 1])) dUp = false;
-        if (!(dVals[i] < dVals[i - 1])) dDown = false;
-      }
-      var shape = (dUp && dTo > dFrom) ? 'up'
-                : (dDown && dTo < dFrom) ? 'down'
-                : 'mixed';
+      var shape = shapeOf(dVals);
 
       // 大摆幅那四句：首句（方向）+ 解释（按方向）+ c 那句 + 收尾那句
       var lead, explain, ending;
       if (shape === 'up') {
-        lead = '你的 d′ 从 ' + dFrom.toFixed(2) + ' 涨到 ' + dTo.toFixed(2) +
+        lead = '你的 d′ 从 ' + fmtNum(dFrom) + ' 涨到 ' + fmtNum(dTo) +
                ' —— 这不是"代价改变了能力"。';
         explain = '最可能的原因是练习效应：前几轮你还在摸索怎么读生命体征，' +
                   '后面已经熟练了 —— 纵向实验里很常见，所以正式实验都会先做一轮练习再开始计分。';
         ending = '三个点也因此没落在同一条曲线上：这一局里，练习和代价混在一起了。';
       } else if (shape === 'down') {
-        lead = '你的 d′ 从 ' + dFrom.toFixed(2) + ' 掉到 ' + dTo.toFixed(2) +
+        lead = '你的 d′ 从 ' + fmtNum(dFrom) + ' 掉到 ' + fmtNum(dTo) +
                ' —— 这不是"代价改变了能力"。';
         explain = '最可能的原因是疲劳或注意力下降 —— 这种实验越到后面越容易判断得草率。' +
                   '也可能是标准被推到了极端：打中和误报一起变得很高时，两者的差距反而会缩小，d′ 就测不准了。';
@@ -425,12 +479,14 @@ window.LabRoc = (function () {
       var tail = bigD
         ? '<p style="margin:0 0 8px;"><strong>' + lead + '</strong></p>' +
           '<p style="margin:0 0 8px;"><strong>' + explain + '</strong></p>' +
-          '<p style="margin:0 0 8px;"><strong>不过 c 的变化仍然说明问题：' + cPath +
-            '，摆幅 ' + span(cVals) + '（' + wordC + '）—— 那是你的标准在动。</strong></p>' +
+          '<p style="margin:0 0 8px;"><strong>' + cPara + '</strong></p>' +
           '<p style="margin:0;"><strong>' + ending + '</strong></p>'
         : '<p style="margin:0 0 8px;"><strong>三轮里你的 d′ ' + wordD +
             '，所以三个点大致落在同一条曲线上。</strong></p>' +
-          '<p style="margin:0 0 8px;"><strong>但它们的位置不同 —— 那是你的标准 c 在移动。</strong></p>' +
+          '<p style="margin:0 0 8px;"><strong>' +
+            (cMoved ? '但它们的位置不同 —— 那是你的标准 c 在移动。'
+                    : '不过三个点的位置也几乎一样 —— c 也没怎么动，这一局的代价没推动你的标准。') +
+          '</strong></p>' +
           '<p style="margin:0;"><strong>同一条曲线 = 同样的能力；曲线上不同的点 = 不同的态度。</strong></p>';
 
       return '<div class="card-head">' + head + '</div>' +
@@ -448,8 +504,8 @@ window.LabRoc = (function () {
       var d = state.d, c = state.c;
       var rounds = readRounds();          // ★ 每次都重新读，重玩一局也能跟上
 
-      el.querySelector('.lab-roc-sld-d-val').textContent = d.toFixed(2);
-      el.querySelector('.lab-roc-sld-c-val').textContent = c.toFixed(2);
+      el.querySelector('.lab-roc-sld-d-val').textContent = fmtNum(d);
+      el.querySelector('.lab-roc-sld-c-val').textContent = fmtNum(c);
       el.querySelector('.lab-roc-auc').textContent = Utils.ncdf(d / Math.SQRT2).toFixed(3);
       el.querySelector('.lab-roc-note').innerHTML = noteHtml(rounds);
       el.querySelector('.lab-roc-conclusion').innerHTML = conclusionHtml(rounds);
