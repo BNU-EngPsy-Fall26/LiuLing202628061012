@@ -52,6 +52,13 @@ import db
 ADMIN_PASSWORD = os.environ.get('SDT_ADMIN_PASSWORD', 'admin123')
 
 # token 只放内存：重启即失效，不落盘、不进数据库。
+#
+# ★★ 正因为这个集合是【进程级】的，gunicorn 必须只开 1 个 worker ★★
+#   一旦写 --workers 4，老师点登录时 token 存在 worker 1 的内存里，
+#   下一次请求被分到 worker 3 → 不认这个 token → 后台「随机掉线」，
+#   四分之三的请求都会掉，症状像网络问题，极难查。
+#   要并发就加 --threads（线程共享同一份内存，安全）。
+#   详见 docs/部署手册-自有服务器.md 第 6.2 节。
 VALID_TOKENS = set()
 
 VALID_MODES = ('standard', 'quick')

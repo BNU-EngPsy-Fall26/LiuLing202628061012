@@ -1,0 +1,7 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "deploy": {
+    "startCommand": "gunicorn --chdir server app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4",
+    "restartPolicyType": "ON_FAILURE"
+  }
+}
