@@ -91,7 +91,19 @@
     '  <p style="' + paraStyle + '">每轮你会看到一位患者的主诉和生命体征。</p>',
     '  <p style="' + paraStyle + '">判断他需不需要立即紧急处理 —— ' +
         '点「立即紧急处理」或「可以等待」。</p>',
-    '  <p style="' + paraStyle + '">你看不到患者的真实情况，只能根据有限的信息判断。</p>',
+    '  <div style="margin-top:12px;padding:10px 12px;' +
+        'background:var(--c-surface-2);' +
+        'border-left:3px solid var(--c-watch);' +
+        'border-radius:var(--radius-sm);">',
+    '    <p style="margin:0 0 6px;font-weight:600;">★ 信息有时会不够用</p>',
+    '    <p style="margin:0 0 6px;font-size:0.9rem;color:var(--c-text-dim);">' +
+        '主诉是患者自己说的，可能不准确；生命体征也只是个侧写。</p>',
+    '    <p style="margin:0;">有时候你会觉得「从常识看这人完全没事」，' +
+        '但他确实需要立即处理 —— <strong>这不是游戏出错</strong>，' +
+        '这就是分诊真实的样子。</p>',
+    '  </div>',
+    '  <p style="margin:10px 0 8px;">请把主诉和生命体征' +
+        '<strong>放在一起看</strong>，不要只依赖其中一项。</p>',
     '  <p style="margin-bottom:0;">判断完会立刻告诉你结果，然后进入下一位。</p>',
     '</div>',
 
