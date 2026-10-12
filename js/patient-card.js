@@ -364,6 +364,34 @@ window.PatientCard = (function () {
    *   传了固定 rng，整张卡片就是完全确定的，测试可以直接比 innerHTML 字符串。
    * ------------------------------------------------------------------------ */
 
+  /* 四象限标签 —— 反馈条最上面那行大字
+   *
+   *   H  = Hit               击中      判"立即处理" + 患者真的危重 → 做对了
+   *   M  = Miss              漏报      判"可以等待" + 患者真的危重 → ★ 最严重
+   *   FA = False Alarm       误报      判"立即处理" + 患者其实没事 → 浪费了床位
+   *   CR = Correct Rejection 正确拒绝  判"可以等待" + 患者其实没事 → 做对了
+   *
+   * 【为什么会加这个】
+   *   反馈只停留 1.2 秒（engine.js 的 FEEDBACK_MS）。光靠读下面那句文案，
+   *   玩家来不及判断"我这次到底做得怎么样" —— 而反馈的全部意义就是让人
+   *   知道自己做对了没有。给一个一眼可读的标签，才在 1.2 秒里读得完。
+   *
+   * 【★ 为什么它不影响实验数据】
+   *   这四个分类是从「判断对错 + 真实情况」推出来的，而这两样下面本来就
+   *   显示了。加上标签【没有透露任何新信息】—— 只是把已有信息变得一眼
+   *   可读。所以它不会改变被试的判断策略，也不会污染数据。
+   *   （对比：改 FEEDBACK_MS 会改变被试的节奏，那是会影响数据的。）
+   *
+   * 【要改词就改这里】四个标签文案全在这个对象里，别处没有第二份。
+   * ------------------------------------------------------------------------ */
+
+  var OUTCOME_LABEL = {
+    H:  '击中！',
+    M:  '漏报！',
+    FA: '误报！',
+    CR: '正确拒绝！',
+  };
+
   function renderFeedback(patient, outcome, rng) {
     var data = window.PatientData;
 
@@ -376,6 +404,23 @@ window.PatientCard = (function () {
       'border-left:3px solid ' + color + ';' +
       'border-radius:var(--radius-sm);');
     bar.className = 'feedback-bar';
+
+    // —— 第 0 行：四象限标签（★ 最大的那行，一眼可读）
+    //
+    //   做成"实心色块 + 深色字"，是因为反馈只停留 1.2 秒 ——
+    //   实心块比同样的文字更快被认出来（形状和颜色都不需要读）。
+    //   色还是用那一套语义色（tone），所以"红=漏报"和别处的红是一个意思。
+    if (OUTCOME_LABEL[outcome]) {
+      var tag = makeEl('div',
+        'display:inline-block;padding:2px 14px;' +
+        'background:' + color + ';color:var(--c-bg);' +
+        'border-radius:var(--radius-sm);' +
+        'font-size:1.2rem;font-weight:700;letter-spacing:0.06em;' +
+        'line-height:1.6;margin-bottom:8px;',
+        OUTCOME_LABEL[outcome]);
+      tag.className = 'feedback-label';
+      bar.appendChild(tag);
+    }
 
     // —— 第一行：这次判断的结果文案
     var pool = data && data.feedback[outcome];
