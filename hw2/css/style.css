@@ -1,0 +1,631 @@
+/* 守灯者：风暴夜班 —— 真正的像素风格 */
+
+/* 引入像素字体 */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+/* 中文像素字体（Fusion Pixel，OFL 许可，见 assets/fonts/OFL.txt） */
+/* 粗颗粒版：用于标题 */
+@font-face {
+  font-family: 'FusionPixel';
+  src: url('../assets/fonts/fusion-pixel-8px-proportional-zh_hans.otf.woff2') format('woff2');
+  font-display: swap;
+}
+/* 细颗粒版：用于正文，同样大小下更清楚 */
+@font-face {
+  font-family: 'FusionPixelFine';
+  src: url('../assets/fonts/fusion-pixel-12px-proportional-zh_hans.otf.woff2') format('woff2');
+  font-display: swap;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: #000;
+  color: #f4d084;
+  font-family: 'Pixelify Sans', 'FusionPixelFine', 'FusionPixel', 'PingFang SC', monospace;
+  font-size: 32px;
+  overflow: hidden;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  filter: contrast(1.1) brightness(0.85);
+}
+
+*, *::before, *::after {
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  image-rendering: pixelated;
+}
+
+/* ========== 像素化海面背景（开屏专用） ========== */
+.pixel-ocean-bg {
+  position: fixed;
+  inset: 0;
+  background:
+    linear-gradient(180deg,
+      #0a0e17 0%,
+      #1a2840 40%,
+      #2B4F6F 70%,
+      #1a3a52 100%
+    );
+  z-index: -1;
+}
+
+.pixel-ocean-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 4px,
+      rgba(255, 255, 255, 0.03) 4px,
+      rgba(255, 255, 255, 0.03) 8px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 4px,
+      rgba(255, 255, 255, 0.03) 4px,
+      rgba(255, 255, 255, 0.03) 8px
+    );
+  opacity: 0.6;
+}
+
+/* 动态星星 */
+.stars {
+  position: absolute;
+  width: 100%;
+  height: 60%;
+  top: 0;
+}
+
+.star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: #fff;
+  box-shadow: 0 0 4px #fff;
+  animation: twinkle 3s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* ========== 屏幕切换 ========== */
+.screen {
+  display: none;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.screen.active {
+  display: flex;
+  animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ========== 通用背景Canvas ========== */
+.bg-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  z-index: 0;
+}
+
+/* 所有包含背景的screen都需要相对定位 */
+#screen-consent,
+#screen-participant,
+#screen-result {
+  position: relative;
+}
+
+#screen-consent .panel,
+#screen-participant .panel,
+#screen-result .panel {
+  position: relative;
+  z-index: 1;
+}
+
+/* ========== 开屏：像游戏启动画面 ========== */
+#screen-welcome {
+  flex-direction: column;
+  gap: 0;
+  text-align: center;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+#welcome-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  z-index: 0;
+}
+
+.welcome-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+}
+
+.game-title {
+  font-size: 96px;
+  color: #f4d084;
+  letter-spacing: 16px;
+  margin-bottom: 32px;
+  text-shadow:
+    6px 6px 0 #C8A44A,
+    0 0 40px rgba(244, 208, 132, 0.8);
+  animation: titleGlow 2s ease-in-out infinite;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  transform: scale(1.0);
+  image-rendering: pixelated;
+}
+
+@keyframes titleGlow {
+  0%, 100% {
+    text-shadow:
+      4px 4px 0 #C8A44A,
+      0 0 20px rgba(244, 208, 132, 0.6);
+  }
+  50% {
+    text-shadow:
+      4px 4px 0 #C8A44A,
+      0 0 40px rgba(244, 208, 132, 0.9);
+  }
+}
+
+.game-subtitle {
+  font-size: 32px;
+  color: #8b9bb4;
+  letter-spacing: 6px;
+  margin-bottom: 60px;
+}
+
+.game-start-btn {
+  font-family: 'Pixelify Sans', 'FusionPixel', 'PingFang SC', monospace;
+  font-size: 40px;
+  padding: 28px 64px;
+  background: #f4d084;
+  color: #0a0e17;
+  border: 5px solid #C8A44A;
+  cursor: pointer;
+  box-shadow:
+    0 10px 0 #8b6d34,
+    0 0 40px rgba(244, 208, 132, 0.6);
+  transition: all 0.1s;
+  letter-spacing: 4px;
+}
+
+.game-start-btn:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 12px 0 #8b6d34,
+    0 0 50px rgba(244, 208, 132, 0.8);
+}
+
+.game-start-btn:active {
+  transform: translateY(4px);
+  box-shadow:
+    0 4px 0 #8b6d34,
+    0 0 20px rgba(244, 208, 132, 0.4);
+}
+
+.game-hint {
+  margin-top: 60px;
+  font-size: 24px;
+  color: #4A7BA7;
+  letter-spacing: 2px;
+  line-height: 2.4;
+}
+
+/* ========== 像素对话框风格面板 ========== */
+.panel {
+  background: #0d1521;
+  border: 4px solid #C8A44A;
+  box-shadow:
+    0 0 0 4px #1a2332,
+    inset 0 0 0 4px rgba(200, 164, 74, 0.2),
+    0 8px 40px rgba(0, 0, 0, 0.8);
+  padding: 32px 40px;
+  max-width: 700px;
+  width: 85%;
+  max-height: 80vh;
+  overflow-y: auto;
+  font-size: 24px;
+  line-height: 2.4;
+}
+
+.panel.wide {
+  max-width: 850px;
+}
+
+/* ========== 标题 ========== */
+.title {
+  font-size: 48px;
+  color: #f4d084;
+  margin-bottom: 28px;
+  text-align: center;
+  letter-spacing: 5px;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  transform: scale(1.0);
+}
+
+.title.small {
+  font-size: 40px;
+  margin-bottom: 24px;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+}
+
+/* ========== 文本内容 ========== */
+.subtitle {
+  font-size: 24px;
+  color: #8b9bb4;
+  margin-bottom: 20px;
+  text-align: center;
+  letter-spacing: 2px;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  transform: scale(1.0);
+}
+
+.hint {
+  font-size: 24px;
+  color: #8b9bb4;
+  margin-bottom: 24px;
+  line-height: 2.6;
+  text-align: center;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  transform: scale(1.0);
+}
+
+.meta {
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid #4A7BA7;
+  padding: 20px 24px;
+  margin-bottom: 28px;
+  font-size: 24px;
+  line-height: 2.4;
+  color: #c9d9e8;
+}
+
+.meta p {
+  margin-bottom: 8px;
+}
+
+.meta strong {
+  color: #f4d084;
+}
+
+/* ========== 同意书 ========== */
+.consent-body {
+  font-size: 24px;
+  line-height: 2.8;
+  color: #c9d9e8;
+  margin-bottom: 28px;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  transform: scale(1.0);
+}
+
+.consent-body p {
+  margin-bottom: 16px;
+  text-indent: 2em;
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  font-size: 24px;
+  color: #f4d084;
+  background: rgba(0, 0, 0, 0.5);
+  border: 3px solid #4A7BA7;
+  padding: 20px;
+  cursor: pointer;
+  margin-bottom: 28px;
+  transition: all 0.2s;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  transform: scale(1.0);
+}
+
+.check:hover {
+  border-color: #C8A44A;
+  background: rgba(200, 164, 74, 0.1);
+}
+
+.check input {
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: #C8A44A;
+}
+
+/* ========== 输入框 ========== */
+.input {
+  width: 100%;
+  padding: 20px 24px;
+  font-size: 32px;
+  font-family: 'Pixelify Sans', 'FusionPixelFine', 'FusionPixel', 'PingFang SC', monospace;
+  color: #f4d084;
+  background: rgba(0, 0, 0, 0.7);
+  border: 4px solid #4A7BA7;
+  outline: none;
+  margin-bottom: 20px;
+  letter-spacing: 3px;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  transform: scale(1.0);
+}
+
+.input:focus {
+  border-color: #C8A44A;
+  box-shadow:
+    0 0 0 2px rgba(200, 164, 74, 0.3),
+    inset 0 0 20px rgba(200, 164, 74, 0.1);
+}
+
+.input::placeholder {
+  color: #4A7BA7;
+  opacity: 0.6;
+}
+
+.error {
+  color: #ff6b6b;
+  font-size: 24px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ========== 按钮 ========== */
+.actions {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.btn {
+  padding: 20px 40px;
+  font-size: 32px;
+  font-family: 'Pixelify Sans', 'FusionPixel', 'PingFang SC', monospace;
+  border: 4px solid transparent;
+  cursor: pointer;
+  transition: all 0.1s;
+  letter-spacing: 2px;
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.5);
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  transform: scale(1.0);
+}
+
+.btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+
+.btn.primary {
+  background: #C8A44A;
+  color: #0a0e17;
+  border-color: #f4d084;
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: #f4d084;
+  box-shadow:
+    0 6px 0 rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(200, 164, 74, 0.6);
+}
+
+.btn.ghost {
+  background: transparent;
+  color: #8b9bb4;
+  border-color: #4A7BA7;
+}
+
+.btn.ghost:hover {
+  color: #c9d9e8;
+  border-color: #C8A44A;
+  background: rgba(200, 164, 74, 0.1);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: grayscale(0.8);
+}
+
+/* ========== 实验区域 ========== */
+#screen-experiment {
+  flex-direction: column;
+  padding: 0;
+  background: #000;
+}
+
+#exp-stage-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #000;
+}
+
+#stage {
+  background: #000;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  cursor: crosshair;
+  image-rendering: pixelated;
+}
+
+/* ========== 底部状态栏 ========== */
+#exp-footer {
+  flex: 0 0 auto;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  background: #0a0e17;
+  border-top: 4px solid #C8A44A;
+  font-size: 24px;
+  letter-spacing: 1px;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.8);
+}
+
+#exp-progress {
+  color: #f4d084;
+}
+
+#exp-hint-text {
+  color: #8b9bb4;
+}
+
+/* ========== 遮罩层 ========== */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.overlay-inner {
+  background: #0d1521;
+  border: 4px solid #C8A44A;
+  padding: 40px 60px;
+  box-shadow:
+    0 0 0 4px #1a2332,
+    0 0 40px rgba(200, 164, 74, 0.6);
+}
+
+.overlay-inner h3 {
+  font-size: 40px;
+  margin-bottom: 24px;
+  color: #f4d084;
+  letter-spacing: 3px;
+}
+
+.overlay-inner p {
+  font-size: 24px;
+  color: #c9d9e8;
+  line-height: 2.4;
+  letter-spacing: 1px;
+}
+
+/* ========== 滚动条 ========== */
+.panel::-webkit-scrollbar {
+  width: 12px;
+}
+
+.panel::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.5);
+  border-left: 2px solid #4A7BA7;
+}
+
+.panel::-webkit-scrollbar-thumb {
+  background: #4A7BA7;
+  border: 2px solid #0d1521;
+}
+
+.panel::-webkit-scrollbar-thumb:hover {
+  background: #C8A44A;
+}
+
+/* ========== 响应式 ========== */
+@media (max-width: 768px) {
+  .game-title {
+    font-size: 40px;
+    margin-bottom: 32px;
+  }
+
+  .game-subtitle {
+    font-size: 24px;
+    margin-bottom: 48px;
+  }
+
+  .game-start-btn {
+    font-size: 24px;
+    padding: 16px 32px;
+  }
+
+  .panel {
+    padding: 28px 32px;
+    font-size: 24px;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+}
+
+/* 标题保留粗颗粒（8px 设计），正文使用细颗粒（12px 设计） */
+.title,
+.title.small,
+.game-title,
+.game-subtitle {
+  font-family: 'Pixelify Sans', 'FusionPixel', 'PingFang SC', monospace;
+}

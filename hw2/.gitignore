@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 临时文件
+*.log
+*.tmp
+
+# 密钥文件（重要！）
+*密钥*
+*secret*
+*key*
+download_key.txt
+
+# 测试数据
+test_data/
+debug/

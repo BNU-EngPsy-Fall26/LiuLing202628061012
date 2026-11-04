@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>实验一：海域搜索 - 守灯者</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/experiment.css">
+</head>
+<body>
+
+  <!-- 指导语 -->
+  <div id="instructionWindow" class="window active">
+    <div class="dialog-box">
+      <h2 class="title">实验一：海域搜索</h2>
+      <div class="instruction-text">
+        <p class="hint">风暴夜，海域中散落着船只和礁岛。</p>
+        <p class="hint">你的任务：搜索<span class="highlight">亮着黄色信号灯的船</span>。</p>
+        <p class="hint" style="margin-top: 20px;">• 有黄色灯船 → 按 <span class="key">F</span></p>
+        <p class="hint">• 只有蓝灯船和礁岛 → 按 <span class="key">J</span></p>
+        <p class="hint" style="margin-top: 20px;">海况会变化（清晰/浓雾），尽快判断。</p>
+      </div>
+      <button class="btn primary" onclick="startPractice()">▶ 开始练习</button>
+    </div>
+  </div>
+
+  <!-- 实验画布 -->
+  <div id="experimentWindow" class="window">
+    <canvas id="stimulusCanvas" width="1200" height="800"></canvas>
+    <div id="feedback" class="feedback"></div>
+  </div>
+
+  <!-- 练习结束 -->
+  <div id="practiceEndWindow" class="window">
+    <div class="dialog-box">
+      <h2 class="title small">练习完成</h2>
+      <div id="practiceStats" class="hint"></div>
+      <button class="btn primary" onclick="startFormal()">▶ 开始正式实验</button>
+    </div>
+  </div>
+
+  <!-- 实验结束 -->
+  <div id="endWindow" class="window">
+    <div class="dialog-box">
+      <h2 class="title small">实验一完成</h2>
+      <div id="endStats" class="hint"></div>
+      <button class="btn primary" onclick="goToExperiment2()">▶ 继续实验二</button>
+      <div style="margin-top: 16px;">
+        <button class="btn primary" id="btn-upload-1" style="background:#2f6d4f; border-color:#6ad48a; color:#eafff2;">上传实验一数据</button>
+        <button class="btn ghost" onclick="downloadAll()" style="margin-left: 12px;">下载 JSON 备份</button>
+        <button class="btn ghost" onclick="location.href='results.html'" style="margin-left: 12px;">查看结果</button>
+      </div>
+      <p id="upload-status-1" style="margin-top:16px; font-size:14px; line-height:1.8; color:#c9d9e8; white-space:pre-line;"></p>
+    </div>
+  </div>
+
+  <script src="js/upload.js"></script>
+  <script src="js/experiment1.js"></script>
+</body>
+</html>

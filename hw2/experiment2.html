@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>实验二：航线变化检测 - 守灯者</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/experiment.css">
+</head>
+<body>
+
+  <!-- 指导语 -->
+  <div id="instructionWindow" class="window active">
+    <div class="dialog-box">
+      <h2 class="title">实验二：航线变化</h2>
+      <div class="instruction-text">
+        <p class="hint">暴风雨中，值班海图反复闪烁。</p>
+        <p class="hint">图上有多座岛屿、多条彩色航线，以及 12 个船只标记。</p>
+        <p class="hint">你的任务：找出<span class="highlight">哪一艘船的位置变了</span>。</p>
+        <p class="hint" style="margin-top: 20px;">• 发现变化后按 <span class="key">空格</span></p>
+        <p class="hint">• 然后<span class="highlight">点击那艘船</span></p>
+        <p class="hint" style="margin-top: 20px;">空白期有两种情况：一种是均匀底色，一种仍保留海图骨架。<br>请尽量按同样标准作答。</p>
+      </div>
+      <button class="btn primary" onclick="startPractice()">▶ 开始练习</button>
+      <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid rgba(74,123,167,0.35);">
+        <p class="hint" style="margin-bottom: 14px;">先看两种显示模式的区别：</p>
+        <div style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+          <button class="btn ghost" onclick="startPreview('uniform')">预览：均匀遮蔽</button>
+          <button class="btn ghost" onclick="startPreview('reference')">预览：稳定参照</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 实验画布 -->
+  <div id="experimentWindow" class="window">
+    <canvas id="stimulusCanvas" width="1200" height="800"></canvas>
+    <div id="feedback" class="feedback"></div>
+  </div>
+
+  <!-- 练习结束 -->
+  <div id="practiceEndWindow" class="window">
+    <div class="dialog-box">
+      <h2 class="title small">练习完成</h2>
+      <div id="practiceStats" class="hint"></div>
+      <button class="btn primary" onclick="startFormal()">▶ 开始正式实验</button>
+    </div>
+  </div>
+
+  <!-- 实验结束 -->
+  <div id="endWindow" class="window">
+    <div class="dialog-box">
+      <h2 class="title small">全部完成！</h2>
+      <div id="endStats" class="hint"></div>
+      <button class="btn primary" id="btn-upload-2" style="background:#2f6d4f; border-color:#6ad48a; color:#eafff2;">上传实验二数据</button>
+      <button class="btn ghost" onclick="downloadData()" style="margin-top: 12px;">下载 JSON 备份</button>
+      <button class="btn ghost" onclick="location.href='results.html'" style="margin-top: 12px;">查看结果</button>
+      <button class="btn ghost" onclick="checkReturnPath()" style="margin-top: 12px;">返回</button>
+      <p id="upload-status-2" style="margin-top:16px; font-size:14px; line-height:1.8; color:#c9d9e8; white-space:pre-line;"></p>
+    </div>
+  </div>
+
+  <script src="js/upload.js"></script>
+  <script src="js/experiment2.js"></script>
+</body>
+</html>

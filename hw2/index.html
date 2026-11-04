@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>守灯者：风暴夜班 · 注意力实验</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- 1. 开屏 —— 像游戏启动画面 -->
+<section id="screen-welcome" class="screen active">
+  <!-- 像素化海面背景Canvas -->
+  <canvas id="welcome-canvas"></canvas>
+
+  <div class="welcome-content">
+    <h1 class="game-title">灯塔守夜人</h1>
+    <p class="game-subtitle">风暴来袭 · 守护航道</p>
+    <button id="btn-to-consent" class="game-start-btn">▶ 开始游戏</button>
+    <div class="game-hint">
+      船只在黑暗中迷失<br>
+      你的灯光是他们唯一的希望<br><br>
+      --- 预计 15-20 分钟 · 双任务实验 ---<br><br>
+      <a href="results.html" style="color:#8b9bb4; text-decoration:underline;">查看已有结果</a>
+    </div>
+  </div>
+</section>
+
+<!-- 2. 知情同意 -->
+<section id="screen-consent" class="screen">
+  <canvas id="consent-canvas" class="bg-canvas"></canvas>
+  <div class="panel wide">
+    <h2 class="title small">知情同意书</h2>
+    <div class="consent-body">
+      <p>您将参加一项关于视觉注意力与情景监控的心理学研究。研究包括两个任务：信号灯搜索任务、航海图变化监测任务。</p>
+      <p>实验不涉及生理测量、摄像头或麦克风采集，不收集个人身份信息。我们仅记录匿名编号、按键反应、正确率与反应时等行为数据。</p>
+      <p>数据仅用于课程作业分析，结果以匿名汇总形式呈现。参与完全自愿，您可随时退出，不会有任何不利影响。</p>
+      <p>如有疑问或感到不适，可立即关闭页面退出实验。</p>
+    </div>
+    <label class="check">
+      <input type="checkbox" id="consent-check">
+      <span>我已阅读并同意参与本次实验</span>
+    </label>
+    <div class="actions">
+      <button id="btn-consent-ok" class="btn primary" disabled>同意并继续</button>
+      <button id="btn-consent-back" class="btn ghost">返回</button>
+    </div>
+  </div>
+</section>
+
+<!-- 3. 匿名编号 -->
+<section id="screen-participant" class="screen">
+  <canvas id="participant-canvas" class="bg-canvas"></canvas>
+  <div class="panel">
+    <h2 class="title small">守夜人登记</h2>
+    <p class="hint">请输入您的匿名编号<br>（建议使用学号后4位数字）</p>
+    <input type="text" id="participant-id" class="input" maxlength="20" placeholder="输入编号..." autocomplete="off">
+    <p id="participant-error" class="error hidden">请输入非空编号</p>
+    <div class="actions">
+      <button id="btn-participant-ok" class="btn primary">确认开始</button>
+      <button id="btn-participant-back" class="btn ghost">返回</button>
+    </div>
+  </div>
+</section>
+
+<!-- 4. 实验区域 -->
+<section id="screen-experiment" class="screen">
+  <div id="exp-stage-wrap">
+    <canvas id="stage" width="1600" height="900"></canvas>
+    <div id="exp-overlay" class="overlay hidden">
+      <div class="overlay-inner">
+        <h3 id="overlay-title">准备中…</h3>
+        <p id="overlay-text"></p>
+      </div>
+    </div>
+  </div>
+  <div id="exp-footer">
+    <span id="exp-progress">试次 0 / 0</span>
+    <span id="exp-hint-text">请使用键盘按键作答</span>
+  </div>
+</section>
+
+<!-- 5. 结果页 -->
+<section id="screen-result" class="screen">
+  <canvas id="result-canvas" class="bg-canvas"></canvas>
+  <div class="panel">
+    <h2 class="title small">值班完成</h2>
+    <p id="result-text" class="hint">天色渐亮<br>风暴已过<br>感谢你守护航道安全</p>
+    <div id="result-summary" class="meta"></div>
+    <div class="actions">
+      <button id="btn-result-again" class="btn ghost">重新开始</button>
+    </div>
+  </div>
+</section>
+
+<script>
+  // 网址加 ?test=1 进入测试模式（上传记为 test_*）
+  if (new URLSearchParams(location.search).get('test') === '1') {
+    sessionStorage.setItem('test_mode', '1');
+  }
+</script>
+<script src="js/config.js"></script>
+<script src="js/common.js"></script>
+<script src="js/welcome.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

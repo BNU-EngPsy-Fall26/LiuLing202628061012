@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>选择实验顺序 - 守灯者</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/experiment.css">
+</head>
+<body>
+  <canvas id="bgCanvas"></canvas>
+
+  <div id="selectWindow" class="window active">
+    <div class="dialog-box">
+      <h2 class="title">守灯者任务</h2>
+      <div class="instruction-text" style="font-size: 32px; line-height: 2.2; color: #c9d9e8; margin-bottom: 32px;">
+        <p class="hint">两项任务需要完成：</p>
+        <p class="hint" style="margin-top: 20px;">
+          <span style="color: #ff8844;">任务一</span>：海域搜索<br>
+          <span style="font-size: 24px; opacity: 0.85;">在船只和礁石中搜索目标信号</span>
+        </p>
+        <p class="hint" style="margin-top: 20px;">
+          <span style="color: #4A7BA7;">任务二</span>：航线变化<br>
+          <span style="font-size: 24px; opacity: 0.85;">发现闪烁海图中的航点移动</span>
+        </p>
+        <p class="hint" style="margin-top: 32px; font-size: 24px; opacity: 0.8;">
+          请选择先完成哪个任务：
+        </p>
+      </div>
+      <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+        <button class="btn primary" onclick="localStorage.setItem('task_order','search_first'); window.location.href='experiment1.html'" style="background: #ff8844; border-color: #ff8844; color: #0a0e17;">
+          ▶ 先做任务一
+        </button>
+        <button class="btn primary" onclick="localStorage.setItem('task_order','route_change_first'); window.location.href='experiment2.html'" style="background: #4A7BA7; border-color: #4A7BA7; color: #f4d084;">
+          ▶ 先做任务二
+        </button>
+      </div>
+      <button class="btn ghost" onclick="window.location.href='index.html'" style="margin-top: 24px;">
+        ← 返回首页
+      </button>
+    </div>
+  </div>
+
+  <script>
+    if (new URLSearchParams(location.search).get('test') === '1') {
+      sessionStorage.setItem('test_mode', '1');
+    }
+  </script>
+  <script src="js/welcome.js"></script>
+</body>
+</html>
