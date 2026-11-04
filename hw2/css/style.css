@@ -28,7 +28,7 @@ html, body {
   height: 100%;
   background: #000;
   color: #f4d084;
-  font-family: 'Pixelify Sans', 'FusionPixelFine', 'FusionPixel', 'PingFang SC', monospace;
+  font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   font-size: 32px;
   overflow: hidden;
   image-rendering: pixelated;
@@ -220,7 +220,7 @@ html, body {
 }
 
 .game-start-btn {
-  font-family: 'Pixelify Sans', 'FusionPixelFine', 'FusionPixel', 'PingFang SC', monospace;
+  font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   font-size: 40px;
   padding: 28px 64px;
   background: #f4d084;
@@ -394,7 +394,7 @@ html, body {
   width: 100%;
   padding: 20px 24px;
   font-size: 32px;
-  font-family: 'Pixelify Sans', 'FusionPixelFine', 'FusionPixel', 'PingFang SC', monospace;
+  font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   color: #f4d084;
   background: rgba(0, 0, 0, 0.7);
   border: 4px solid #4A7BA7;
@@ -442,7 +442,7 @@ html, body {
 .btn {
   padding: 20px 40px;
   font-size: 32px;
-  font-family: 'Pixelify Sans', 'FusionPixelFine', 'FusionPixel', 'PingFang SC', monospace;
+  font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   border: 4px solid transparent;
   cursor: pointer;
   transition: all 0.1s;
@@ -627,5 +627,17 @@ html, body {
 .title.small,
 .game-title,
 .game-subtitle {
+  font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+}
+
+/* 标题保留像素风；登录页文字保持原样 */
+.title,
+.title.small,
+.game-title {
+  font-family: 'Pixelify Sans', 'FusionPixelFine', 'FusionPixel', 'PingFang SC', monospace;
+}
+.game-subtitle,
+.game-hint,
+.game-start-btn {
   font-family: 'Pixelify Sans', 'FusionPixelFine', 'FusionPixel', 'PingFang SC', monospace;
 }
