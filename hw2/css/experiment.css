@@ -105,3 +105,18 @@
   font-size: 32px;
   line-height: 2.2;
 }
+
+/* 实验一/二页面：标题进一步降低像素化（改用系统字体，保留金色描边风格） */
+.dialog-box .title,
+.dialog-box .title.small {
+  font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+/* 指导语正文保持系统字体 */
+.instruction-text,
+.instruction-text .hint,
+.instruction-text p {
+  font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+}
