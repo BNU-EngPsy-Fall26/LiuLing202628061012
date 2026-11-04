@@ -123,5 +123,5 @@
 
 /* 仅主标题（守灯者任务 / 实验一 / 实验二）保留像素风；弹窗内的小标题仍用系统字体 */
 .dialog-box .title.pixel-title {
-  font-family: 'Pixelify Sans', 'FusionPixelFine', 'FusionPixel', 'PingFang SC', monospace;
+  font-family: 'Pixelify Sans', 'FusionPixelFine', 'FusionPixel', 'PingFang SC', monospace !important;
 }
