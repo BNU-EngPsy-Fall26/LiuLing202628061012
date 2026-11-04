@@ -120,3 +120,8 @@
 .instruction-text p {
   font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
 }
+
+/* 仅主标题（守灯者任务 / 实验一 / 实验二）保留像素风；弹窗内的小标题仍用系统字体 */
+.dialog-box .title.pixel-title {
+  font-family: 'Pixelify Sans', 'FusionPixelFine', 'FusionPixel', 'PingFang SC', monospace;
+}
